@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curvas</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="scripts.js" defer></script>
+</head>
+<body>
+    <div id="ui-controls-wrapper">
+        <div id="ui-controls">
+          <h1>NURBS:</h1>
+            <p>Clique (ou toque) com o botão esquerdo no espaço vazio para adicionar novo ponto à curva 1.<br>
+            <p>Clique com o botão direito (ou segure com o dedo) sobre um ponto para configurar (ajustar seu peso) ou remover o ponto.<br>
+            <p>Ajuste as configurações globais a seguir conforme necessário:</p>
+        
+          <div class="control-group" id="NURBS-settings">
+            <label for="knotVector">Vetor de nós da NURBS:</label>
+            <input type="text" id="knotVector">
+            <button id="resetKnots">Restaurar</button>
+            <button id="applyKnots" style="display:none;">Aplicar</button>
+          </div>
+        
+          <div class="control-group" id="general-settings">
+              <input type="checkbox" id="showControlPolygon" checked>
+              <label for="showControlPolygon" class="checkbox-lbl">Exibir polígono de controle</label>
+              <input type="checkbox" id="showControlPoints" checked>
+              <label for="showControlPoints" class="checkbox-lbl">Exibir pontos de controle</label>
+              <input type="checkbox" id="showWeights">
+              <label for="showWeights" class="checkbox-lbl">Exibir pesos</label>
+              <input type="checkbox" id="showKnots">
+              <label for="showKnots" class="checkbox-lbl">Exibir nós</label>
+              <label for="sampleCount" class="setting-lbl">Número de amostras:</label>
+              <input type="number" id="sampleCount" min="10" max="50000" value="1000" step="10">
+          </div>
+        </div>
+    </div>
+    <!-- Usando técnica similar à de IoT-entrada-escola para animar popup. -->
+    <div id="pointContextMenu" class="context-menu hidden">
+      <div class="menu-item" id="setWeight">Peso: 
+        <input type="number" id="weightInput" step="0.1" value="1.0" @click.stop>
+      </div>
+      <div class="menu-item" id="deletePoint">Remover ponto</div>
+    </div>
+
+  <div id="pointInfoPopup" class="context-menu hidden">
+    <div class="menu-item">Ponto <span id="pointIndex">0</span></div>
+    <div class="menu-item">Posição x, y, z: 
+      <span class="coords">
+        <span id="pointX">0</span>, 
+        <span id="pointY">0</span>, 
+        <span id="pointZ">0</span>
+      </span>
+    </div>
+    <div class="menu-item">Peso: <span id="pointWeight">1.0</span></div>
+    <div class="menu-item">Parâmetro t: <span id="tValue">0</span></div>
+  </div>
+
+	<canvas id="curves-canvas"></canvas>
+  <footer>         
+    <p>&copy; 2025 Luis Alfredo. 
+      <a class="modal-small license-link" href="#">Sobre / Licença</a>
+    </p>    
+  </footer>
+</body>
+</html>

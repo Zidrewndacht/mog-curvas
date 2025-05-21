@@ -1,0 +1,9 @@
+Clique com botão direito para adicionar pontos à segunda curva (se aplicável)
+
+Ocultar/exibir configurações gerais;
+Checkbox para exibir nós;
+Exibir parâmetro t;
+Popup de sobre/licença;
+Grid layout de vetor de nós;
+Tooltips para checkboxes, botões, etc.
+Corrigir bug HiDPI (borrado em alguns níveis de zoom)
