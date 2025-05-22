@@ -1,9 +1,19 @@
 Clique com botão direito para adicionar pontos à segunda curva (se aplicável)
 
-Ocultar/exibir configurações gerais;
-Checkbox para exibir nós;
-Exibir parâmetro t;
-Popup de sobre/licença;
-Grid layout de vetor de nós;
-Tooltips para checkboxes, botões, etc.
-Corrigir bug HiDPI (borrado em alguns níveis de zoom)
+    Reimplementar manualmente Cox-De Boor;
+OK  Ajustar x, y do ponto também com clique do botão direito.
+OK  Ocultar/exibir configurações gerais;
+    Implementar checkbox para exibir nós;
+    Exibir parâmetro t (aka u);
+    Popup de sobre/licença;
+    Grid layout de interface de configuração;
+    Tooltips para checkboxes, botões, etc - usar mesmo estilo usado nos popups sobre pontos.
+    Corrigir bug HiDPI (borrado em alguns níveis de zoom)
+    Implementar eventos de touch (celular/C630)
+    Implementar eventos de caneta (X380Y)
+    Implementar Ctrl+Z? (pode não ser tão trivial assim para drag?)
+
+    Impedir de remover ponto comum às curvas.
+    Mover ponto comum de ambas as curvas simultaneamente.
+
+    Documentar ou remover @click.stop
