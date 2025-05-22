@@ -1,6 +1,6 @@
 let canvas, ctx;
 
-const degree = 3;
+const degree = 3; //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva.
 let knotVector = [0, 0, 0, 0, 0.25, 0.5, 0.75, 1, 1, 1, 1];
 let controlPoints = [ //Curva inicial (pré-definida)
     { x: 100, y: 450, z: 0, weight: 1 },
@@ -14,17 +14,16 @@ let controlPoints = [ //Curva inicial (pré-definida)
 
 const contextMenu = document.getElementById('pointContextMenu');
 
-let selectedPointIndex = -1; // Ponto selecionado para configuração com clique de botão direito.
+//Variáveis para interação com interface (contexto, dragging, hover)
+let selectedPointIndex = -1; // Ponto selecionado para configuração durante clique de botão direito.
 let isDragging = false;
 let dragPointIndex = -1;
-let dragStartPos = { x: 0, y: 0 }; // Add this with your other variables at the top
-
-// Add these variables with your other variable declarations
+let dragStartPos = { x: 0, y: 0 }; 
 let hoverTimeout;
 let hoveredPointIndex = -1;
 
 const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão direito/arrastar
-const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 2;  //proximidade mínima para criação de novo ponto.
+const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima para criação de novo ponto.
 
 function setupCanvas() { //usada em init e redumensionamento.
   const dpr = window.devicePixelRatio || 1;
@@ -64,11 +63,16 @@ function initCanvas() {
   document.getElementById('showControlPoints').addEventListener('change', draw);
   document.getElementById('showKnots').addEventListener('change', draw);
   document.getElementById('showWeights').addEventListener('change', draw);
-  
+
   document.getElementById('sampleCount').addEventListener('input', draw);
 
   document.getElementById('deletePoint').addEventListener('click', deleteSelectedPoint);
   document.getElementById('weightInput').addEventListener('input', updatePointWeight);
+  
+  document.getElementById('setX').addEventListener('input', updatePosition);
+  document.getElementById('setY').addEventListener('input', updatePosition);
+  //setZ não necessário pois sempre é zero.
+
   //knot vector handling
   document.getElementById('knotVector').addEventListener('input', validateKnotVector);
   document.getElementById('resetKnots').addEventListener('click', resetKnotVector);
@@ -89,6 +93,9 @@ function handleRightClick(e) {
   selectedPointIndex = findControlPointAtPosition(x, y);
 
   if (selectedPointIndex >= 0) {
+    document.getElementById('setX').value = controlPoints[selectedPointIndex].x;
+    document.getElementById('setY').value = controlPoints[selectedPointIndex].y;
+    document.getElementById('setZ').value = controlPoints[selectedPointIndex].z;
     document.getElementById('weightInput').value = controlPoints[selectedPointIndex].weight;
     const deleteOption = document.getElementById('deletePoint');
     deleteOption.classList.toggle('hidden-option', controlPoints.length <= 4);
@@ -250,7 +257,15 @@ function deleteSelectedPoint() {  //usada por clique em remover ponto. Remove o 
   }
 }
 
-
+function updatePosition(){
+  if (selectedPointIndex >= 0) {
+    const x = parseFloat(document.getElementById('setX').value);
+    const y = parseFloat(document.getElementById('setY').value);
+    controlPoints[selectedPointIndex].x = x;
+    controlPoints[selectedPointIndex].y = y;
+    draw();
+  }
+}
 
 
 /*** Gerenciamento de vetor de nós: */
@@ -297,28 +312,6 @@ function validateKnotVector() {
     }
   }
   
-  // Verifica multiplicidade (Nenhum nó com multiplicidade > degree + 1) 
-  // //parece ser permitido cf. https://www.cs.drexel.edu/~deb39/Classes/CS536/Lectures/L-05_BSplines_NURBS.pdf ?
-  // let currentKnot = newKnots[0];
-  // let multiplicity = 1;
-  // for (let i = 1; i < newKnots.length; i++) {
-  //   if (newKnots[i] === currentKnot) {
-  //     multiplicity++;
-  //     if (multiplicity > degree + 1) {
-  //       knotInput.setCustomValidity(`Nó ${currentKnot} aparece vezes demais (máximo ${degree + 1} para grau ${degree})`);
-  //       knotInput.reportValidity();
-
-  //       applyButton.style.display = 'none';
-  //       resetButton.style.display = 'inline-block';
-
-  //       return false;
-  //     }
-  //   } else {
-  //     currentKnot = newKnots[i];
-  //     multiplicity = 1;
-  //   }
-  // }
-  
   // Validação OK
   knotInput.setCustomValidity('');
   knotInput.reportValidity();
@@ -346,7 +339,7 @@ function updateKnotVector() {
   }
 }
 
-function resetKnotVector() {  //usado por updateKnotVector() e evento de botão de reset
+function resetKnotVector() {  //usado por updateKnotVector() e evento de botão de reset. Revisar
   // Reset to default for current degree and control points
   const n = controlPoints.length;
   const k = degree + 1;
@@ -438,7 +431,7 @@ function draw() {
     }
   });
 
-  drawCurve(); //TODO
+  drawCurve();
 }
 
 
@@ -484,7 +477,13 @@ function isContextMenuOpen() {
 
 
 
-/*** Mágica: */
+
+
+
+
+
+
+/*** Mágica: (Implementaçã de Cox-De Boor segundo DS V3 -- reescrever cf. livro. */
 function basisFunction(i, p, u, knots) {
     if (p === 0) {
         // Handle the end of the interval inclusively
@@ -502,12 +501,10 @@ function basisFunction(i, p, u, knots) {
 }
 
 function evaluateNURBS(u, degree, controlPoints, knots) {
-    let x = 0;
-    let y = 0;
-    let z = 0;
+    let x = 0, y = 0, z = 0;
     let weightSum = 0;
 
-    for (let i = 0; i < controlPoints.length; i++) {
+    for (let i = 0; i < controlPoints.length; i++) {  //para cada ponto de controle:
         const basis = basisFunction(i, degree, u, knots);
         const weightedBasis = basis * controlPoints[i].weight;
         x += controlPoints[i].x * weightedBasis;
@@ -515,9 +512,6 @@ function evaluateNURBS(u, degree, controlPoints, knots) {
         z += controlPoints[i].z * weightedBasis;
         weightSum += weightedBasis;
     }
-
-    // Avoid division by zero (shouldn't happen for valid NURBS)
-    if (weightSum === 0) return { x: 0, y: 0, z: 0 };
     return {
         x: x / weightSum,
         y: y / weightSum,
@@ -540,7 +534,7 @@ function drawCurve() {
 
     // Sample the curve within the valid range
     for (let i = 1; i <= sampleCount; i++) {
-        const u = u_min + i * delta * (1 - 1e-10);
+        const u = u_min + i * delta * (1 - 1e-30);
         const point = evaluateNURBS(u, degree, controlPoints, knotVector);
         ctx.lineTo(point.x, point.y);
     }
@@ -556,23 +550,32 @@ function drawCurve() {
 
 
 
+// Add these variables at the top of scripts.js
+let isUIMinimized = false;
+const uiWrapper = document.getElementById('ui-controls-wrapper');
+const minimizeToggle = document.getElementById('minimize-toggle');
 
+// Toggle UI Visibility Function
+function toggleUIVisibility() {
+    isUIMinimized = !isUIMinimized;
+    
+    if (isUIMinimized) {
+        uiWrapper.classList.add('minimized');
+        uiWrapper.addEventListener('transitionend', () => {
+            uiWrapper.style.zIndex = '-1';
+        }, { once: true });
+        minimizeToggle.textContent = '⛭';
+    } else {
+        uiWrapper.style.zIndex = '10';
+        // Force reflow to ensure the z-index change is applied before animation
+        void uiWrapper.offsetHeight;
+        uiWrapper.classList.remove('minimized');
+        minimizeToggle.textContent = '⛭';
+    }
+}
 
-
-
-
-
+// Add event listener for the minimize button
+minimizeToggle.addEventListener('click', toggleUIVisibility);
 
 
 window.onload = initCanvas;
-
-
-
-
-
-
-
-
-
-
-
