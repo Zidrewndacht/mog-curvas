@@ -14,18 +14,19 @@
   <div id="ui-controls-wrapper">
     <div id="ui-controls">
       <div class="ui-info">
-        <h1>NURBS grau 3 + [[[[[[curva a definir]]]]]]:</h1>
-        <p>Clique (ou toque) com o botão esquerdo no espaço vazio para adicionar novo ponto à curva 1.<br>
-        <p>Clique (ou toque) com o botão direito no espaço vazio para adicionar novo ponto à curva 2.<br>
-        <p>Clique com o botão direito (ou segure com o dedo) sobre um ponto para configurar (ajustar seu peso) ou
+        <h1><span style="color:#004015c0">NURBS grau 3</span> + <span style="color:darkred">Bézier Grau 7</span></h1>
+        <p>Mova os pontos de controle existentes arrastando-os com o botão esquerdo do mouse.</p>
+        <p>Clique (ou toque) com o botão esquerdo no espaço vazio para adicionar novo ponto à <span style="font-weight: bold;color:#004015c0">curva 1</span>. 
+          <br>A <span style="font-weight: bold;color:darkred">curva 2</span> possui número fixo de pontos de controle (8).<br>
+        <p>Clique com o botão direito (ou segure com o dedo) sobre um ponto para configurar (posição e peso, se aplicável) ou
           remover o ponto.<br>
         <p>Clique na engrenagem no canto superior esquerdo para minimizar ou re-exibir esta página de configuração.<br>
         <p>Ajuste as configurações globais a seguir conforme necessário:</p>
       </div>
       <div class="controls-wrapper">
         <div class="control-group" id="NURBS-settings">
-          <label for="knotVector">Vetor de nós da NURBS:</label>
-          <input type="text" id="knotVector">
+          <label for="NURBSknotVector">Vetor de nós da NURBS:</label>
+          <input type="text" id="NURBSknotVector">
           <button id="resetKnots">Restaurar</button>
           <button id="applyKnots" style="display:none;">Aplicar</button>
         </div>

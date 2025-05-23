@@ -126,7 +126,7 @@ input[type="checkbox"] {
     left: -84px;
     width: 80px;
     transition: 0.25s all ease-in-out;
-}   /*implementar hover, active do botão*/
+}   
 #applyKnots{
     background: linear-gradient(0deg, hsl(110, 30%, 83%) 0%, hsl(110, 35%, 92%) 100%)
 }
@@ -140,11 +140,6 @@ button:active {
     box-shadow: inset 1px 4px 16px 0 #0006;
     transition: 0.2s all ease-in-out;
 }
-
-.menu-item:hover {
-    background: #f0f0f0;
-}
-
 #deletePoint{
     text-align: center;
 }
@@ -152,6 +147,7 @@ button:active {
     background: rgb(162, 88, 88);
     color: #eee;
     text-shadow: 0px 1px 6px rgb(115, 63, 63);
+    border-radius: 0px;
 }
 footer{
     position: fixed;
@@ -209,7 +205,8 @@ footer{
     height: 28px;
 }
 .menu-item:hover {
-    background: #ddd6;
+    background: #ccc6;
+    border-radius: 4px;
 }
 .menu-number-input {
     width: 50px;
@@ -230,7 +227,7 @@ footer{
     padding: 4px;
     margin: 0 4px 4px 4px;
     background: #aaa2;
-    border-radius: 8px;
+    border-radius: 6px;
 }
 #setWeight, #deletePoint{
     height: 36px;
@@ -303,7 +300,7 @@ footer{
 
 #ui-controls-wrapper.minimized {
     opacity: 0;
-    transform: scale(0.92) translateX(-30px) translateY(-15px);
+    transform: scale(0.92) translateX(-30px) translateY(-20px);
     visibility: hidden;
     transition: 
         opacity 0.2s ease-in-out,

@@ -5,7 +5,6 @@ const minimizeToggle = document.getElementById('minimize-toggle');
 
 const degree = 3; //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva.
 let NURBSknotVector = [0, 0, 0, 0, 0.25, 0.5, 0.75, 1, 1, 1, 1];
-let selectedCurveType = 'NURBS'; // or 'BEZIER'
 
 let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 590, y: 625, z: 0, weight: 1 },
@@ -14,18 +13,18 @@ let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 850, y: 450, z: 0, weight: 1 },
     { x: 790, y: 750, z: 0, weight: 0.5 },
     { x: 900, y: 600, z: 0, weight: 1 },
-    { x: 750, y: 550, z: 0, weight: 0.5 }
+    { x: 750, y: 550, z: 0, weight: 1 }
 ];
 
-let bezierControlPoints = [ //Curva inicial (pré-definida)
-    { ...NURBScontrolPoints[0] },  //precisa ser também dinamicamente definido como igual ao primeiro ponto da NURBS ao alterar.
-    { x: 500, y: 500, z: 0 },
-    { x: 450, y: 750, z: 0 },
-    { x: 400, y: 500, z: 0 },
-    { x: 350, y: 800, z: 0 },
-    { x: 300, y: 550, z: 0 },
-    { x: 250, y: 575, z: 0 },
-    { x: 350, y: 575, z: 0 },
+let bézierControlPoints = [ //Curva inicial (pré-definida)
+    { x: 550, y: 575, z: 0 }, //precisa ser dinamicamente definido como igual ao primeiro ponto da NURBS
+    { x: 900, y: 600, z: 0 },
+    { x: 390, y: 750, z: 0 },
+    { x: 450, y: 450, z: 0 },
+    { x: 300, y: 720, z: 0 },
+    { x: 240, y: 700, z: 0 },
+    { x: 150, y: 575, z: 0 },
+    { x: 250, y: 675, z: 0 },
 ];
 
 const contextMenu = document.getElementById('pointContextMenu');
@@ -404,8 +403,6 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
-  drawNURBScurve();
-  drawBezierCurve();
   //Polígono de controle:
   const showControlPolygon = document.getElementById('showControlPolygon').checked;
   if (NURBScontrolPoints.length > 1 && showControlPolygon) {
@@ -413,10 +410,6 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
     ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
     for (let i = 1; i < NURBScontrolPoints.length; i++) {
       ctx.lineTo(NURBScontrolPoints[i].x, NURBScontrolPoints[i].y);
-    }
-    ctx.moveTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
-    for (let i = 1; i < bezierControlPoints.length; i++) {
-      ctx.lineTo(bezierControlPoints[i].x, bezierControlPoints[i].y);
     }
     ctx.strokeStyle = '#bbb';
     ctx.lineWidth = 1;
@@ -426,8 +419,6 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
     ctx.beginPath();
     ctx.moveTo(NURBScontrolPoints[NURBScontrolPoints.length-1].x, NURBScontrolPoints[NURBScontrolPoints.length-1].y);
     ctx.lineTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
-    ctx.moveTo(bezierControlPoints[bezierControlPoints.length-1].x, bezierControlPoints[bezierControlPoints.length-1].y);
-    ctx.lineTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
     ctx.strokeStyle = '#bbb4'; 
     ctx.stroke();
   }
@@ -439,7 +430,7 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
     if (showControlPoints){
       ctx.beginPath();
       ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#208030';
+      ctx.fillStyle = '#203080';
       ctx.fill();
 
       ctx.fillStyle = '#203080e0';
@@ -451,18 +442,7 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
     }
   });
 
-  bezierControlPoints.forEach((point, index) => {
-      if (showControlPoints) {
-          ctx.beginPath();
-          ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
-          ctx.fillStyle = '#802030'; // Red for Bézier
-          ctx.fill();
-          
-          ctx.fillStyle = '#203080e0';
-          ctx.fillText(index.toString(), point.x - 5, point.y - 15);
-      }
-  });
-
+  drawCurve();
 }
 
 
@@ -508,46 +488,7 @@ function evaluateNURBS(u, degree, NURBScontrolPoints, knots) {
     };
 }
 
-function evaluateBezier(t, points) {
-    // De Casteljau's algorithm
-    const n = points.length - 1;
-    let workingPoints = [...points];
-    
-    for (let level = 1; level <= n; level++) {
-        for (let i = 0; i <= n - level; i++) {
-            workingPoints[i] = {
-                x: (1 - t) * workingPoints[i].x + t * workingPoints[i + 1].x,
-                y: (1 - t) * workingPoints[i].y + t * workingPoints[i + 1].y,
-                z: 0
-            };
-        }
-    }
-    
-    return workingPoints[0];
-}
-
-function drawBezierCurve() {
-    const sampleCount = parseInt(document.getElementById('sampleCount').value) || 100;
-    ctx.beginPath();
-    
-    // First point
-    const startPoint = bezierControlPoints[0];
-    ctx.moveTo(startPoint.x, startPoint.y);
-    
-    // Sample the curve
-    for (let i = 1; i <= sampleCount; i++) {
-        const t = i / sampleCount;
-        const point = evaluateBezier(t, bezierControlPoints);
-        ctx.lineTo(point.x, point.y);
-    }
-    
-    ctx.strokeStyle = '#800'; // Dark red for Bézier curve
-    ctx.lineWidth = 2;
-    ctx.stroke();
-}
-
-
-function drawNURBScurve() {
+function drawCurve() {  //precisa ser atualizado para renderizar também bézier.
     const sampleCount = parseInt(document.getElementById('sampleCount').value) || 100;
     ctx.beginPath();
 
@@ -589,6 +530,7 @@ function getCanvasCoords(canvas, clientX, clientY) {
     y: (clientY - rect.top) * scaleY
   };
 }
+
 function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {
   for (let i = 0; i < NURBScontrolPoints.length; i++) {
     const dot = NURBScontrolPoints[i];
@@ -599,7 +541,6 @@ function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {
   }
   return -1; // Return -1 if no point found
 }
-
 
 function isContextMenuOpen() {  
   //if (selectedPointIndex >= 0) pode ser suficiente em vez disso, mas, na prática, tanto faz.
