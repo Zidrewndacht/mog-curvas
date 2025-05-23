@@ -36,6 +36,8 @@
           <label for="showControlPolygon" class="checkbox-lbl">Exibir polígono de controle</label>
           <input type="checkbox" id="showControlPoints" checked>
           <label for="showControlPoints" class="checkbox-lbl">Exibir pontos de controle</label>
+          <input type="checkbox" id="showPointIndex" checked>
+          <label for="showPointIndex" class="checkbox-lbl">Exibir índices</label>
           <input type="checkbox" id="showWeights">
           <label for="showWeights" class="checkbox-lbl">Exibir pesos</label>
           <input type="checkbox" id="showKnots">
@@ -66,7 +68,7 @@
   </div>
 
   <div id="pointInfoPopup" class="context-menu hidden">
-    <div class="menu-item">Ponto <span id="pointIndex">0</span></div>
+    <div class="menu-item">Ponto: <span id="pointIndex">0</span></div>
     <div class="menu-item">Posição x, y, z:
       <span class="coords">
         <span id="pointX">0</span>,
@@ -75,7 +77,7 @@
       </span>
     </div>
     <div class="menu-item">Peso: <span id="pointWeight">1.0</span></div>
-    <div class="menu-item">Parâmetro t: <span id="tValue">0</span></div>
+    <!-- <div class="menu-item">Parâmetro t: <span id="tValue">0</span></div> -->
   </div>
 
   <canvas id="curves-canvas"></canvas>

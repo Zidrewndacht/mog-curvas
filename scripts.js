@@ -3,9 +3,9 @@ let isUIMinimized = false;
 const uiWrapper = document.getElementById('ui-controls-wrapper');
 const minimizeToggle = document.getElementById('minimize-toggle');
 
+let selectedCurve = 'NURBS'; // or 'BEZIER'
 const degree = 3; //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva.
 let NURBSknotVector = [0, 0, 0, 0, 0.25, 0.5, 0.75, 1, 1, 1, 1];
-let selectedCurveType = 'NURBS'; // or 'BEZIER'
 
 let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 590, y: 625, z: 0, weight: 1 },
@@ -117,7 +117,7 @@ function toggleUIVisibility() {
     }
 }
 
-function handleRightClick(e) {  //abre menu de contexto
+function handleRightClick(e) {
   e.preventDefault();
   e.stopPropagation();
   
@@ -127,12 +127,25 @@ function handleRightClick(e) {  //abre menu de contexto
   selectedPointIndex = findControlPointAtPosition(x, y);
 
   if (selectedPointIndex >= 0) {
-    document.getElementById('setX').value = Math.round(NURBScontrolPoints[selectedPointIndex].x);
-    document.getElementById('setY').value = Math.round(NURBScontrolPoints[selectedPointIndex].y);
-    document.getElementById('setZ').value = Math.round(NURBScontrolPoints[selectedPointIndex].z);
-    document.getElementById('weightInput').value = NURBScontrolPoints[selectedPointIndex].weight;
+    const currentPoints = selectedCurve === 'NURBS' ? NURBScontrolPoints : bezierControlPoints;
+    const point = currentPoints[selectedPointIndex];
+    
+    document.getElementById('setX').value = Math.round(point.x);
+    document.getElementById('setY').value = Math.round(point.y);
+    document.getElementById('setZ').value = Math.round(point.z);
+    
+    // Only show weight for NURBS points
+    const weightInput = document.getElementById('weightInput');
+    weightInput.value = selectedCurve === 'NURBS' ? point.weight : 1;
+    weightInput.disabled = selectedCurve !== 'NURBS';
+    // const setWeight = document.getElementById('setWeight');
+    // setWeight.classList.toggle('hidden-option', 
+    //   selectedCurve !== 'NURBS');
+    
+    // Don't allow deleting Bézier points (since they're fixed)
     const deleteOption = document.getElementById('deletePoint');
-    deleteOption.classList.toggle('hidden-option', NURBScontrolPoints.length <= 4); //Impede remoção dos últimos 4 pontos.
+    deleteOption.classList.toggle('hidden-option', 
+      selectedCurve !== 'NURBS' || NURBScontrolPoints.length <= 4);
     
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
@@ -159,20 +172,20 @@ function handleDocumentClick(e) {   //para fechar menu de contexto:
   }
 }
 
-function handleCanvasClick(e) { //apenas NURBS possibilita adição de novos pontos.
+function handleCanvasClick(e) {
   if (!isContextMenuOpen() && e.button === 0 && !isDragging) {
     const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
     
+    // Only allow adding to NURBS curve
     if (findControlPointAtPosition(x, y, ADD_POINT_THRESHOLD) === -1) {
-      NURBScontrolPoints.push({ x, y, z:0, weight: 1 });
+      NURBScontrolPoints.push({ x, y, z: 0, weight: 1 });
       updateNURBSknotVector();
       draw();
     }
   }
 }
-
 function handleMouseDown(e) {
-  if (e.button !== 0) return; // Only left mouse button
+  if (e.button !== 0) return;
   
   const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
   dragStartPos = { x, y };
@@ -183,34 +196,48 @@ function handleMouseDown(e) {
     canvas.style.cursor = 'grabbing';
   }
 }
-
 function handleMouseMove(e) {
-  if (!isDragging) {    // Handle point hover
-    const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
-    const pointIndex = findControlPointAtPosition(x, y);
-    
-    if (pointIndex !== hoveredPointIndex) {
-      clearTimeout(hoverTimeout);
-      hidePointInfoPopup();
-      
-      if (pointIndex >= 0 && !isContextMenuOpen()) {
-        hoverTimeout = setTimeout(() => {
-          showPointInfoPopup(e, pointIndex);
-        }, 500); // Slight delay before showing
-      }
-    }
-    return;
-  }
-  if (isDragging) { //handle repositioning by dragging
+  if (isDragging) {
     hidePointInfoPopup();
     closeContextMenu();
     requestAnimationFrame(() => {
       const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
-      NURBScontrolPoints[dragPointIndex].x = x;
-      NURBScontrolPoints[dragPointIndex].y = y;
-      NURBScontrolPoints[dragPointIndex].z = 0; // Ensure z remains 0
+      
+      if (selectedCurve === 'NURBS') {
+        NURBScontrolPoints[dragPointIndex].x = x;
+        NURBScontrolPoints[dragPointIndex].y = y;
+        if (dragPointIndex === 0) {
+          bezierControlPoints[0].x = x;
+          bezierControlPoints[0].y = y;
+        }
+      } else {
+        bezierControlPoints[dragPointIndex].x = x;
+        bezierControlPoints[dragPointIndex].y = y;
+        if (dragPointIndex === 0) {
+          NURBScontrolPoints[0].x = x;
+          NURBScontrolPoints[0].y = y;
+        }
+      }
+      
       draw();
     });
+    return;
+  }
+  
+  // Handle hover
+  const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
+  const pointIndex = findControlPointAtPosition(x, y);
+  
+  if (pointIndex !== hoveredPointIndex) {
+    clearTimeout(hoverTimeout);
+    hidePointInfoPopup();
+    
+    if (pointIndex >= 0 && !isContextMenuOpen()) {
+      hoverTimeout = setTimeout(() => {
+        showPointInfoPopup(e, pointIndex);
+      }, 500);
+    }
+    hoveredPointIndex = pointIndex;
   }
 }
 
@@ -223,15 +250,26 @@ function handleMouseUp() {
   hidePointInfoPopup();
 }
 
-function showPointInfoPopup(e, pointIndex) {  //adicionar também identificação de pontos da curva de bézier:
-  if (isContextMenuOpen()) return;      // previne/esconde popup se menu de contexto foi aberto.
-  const point = NURBScontrolPoints[pointIndex];
+function showPointInfoPopup(e, pointIndex) {
+  if (isContextMenuOpen()) return;
+  
+  const point = selectedCurve === 'NURBS' 
+    ? NURBScontrolPoints[pointIndex] 
+    : bezierControlPoints[pointIndex];
+  
   document.getElementById('pointIndex').textContent = pointIndex;
   document.getElementById('pointX').textContent = Math.round(point.x);
   document.getElementById('pointY').textContent = Math.round(point.y);
-  document.getElementById('pointZ').textContent = Math.round(point.z); 
-  document.getElementById('pointWeight').textContent = point.weight.toFixed(1);
-
+  document.getElementById('pointZ').textContent = Math.round(point.z);
+  
+  const weightElement = document.getElementById('pointWeight');
+  weightElement.textContent = selectedCurve === 'NURBS' 
+    ? point.weight.toFixed(1) 
+    : '1.0';
+  weightElement.parentElement.style.display = selectedCurve === 'NURBS' 
+    ? 'flex' 
+    : 'none';
+  
   const popup = document.getElementById('pointInfoPopup');
   popup.style.left = `${e.clientX + 15}px`;
   popup.style.top = `${e.clientY + 15}px`;
@@ -251,15 +289,40 @@ function hidePointInfoPopup() {
 
 
 /*** Gerenciamento de pontos: */
-
-function updatePointWeight() {  //usada por evento de alteração de peso.
+function updatePosition() {
   if (selectedPointIndex >= 0) {
+    const x = parseFloat(document.getElementById('setX').value);
+    const y = parseFloat(document.getElementById('setY').value);
+    
+    if (selectedCurve === 'NURBS') {
+      NURBScontrolPoints[selectedPointIndex].x = x;
+      NURBScontrolPoints[selectedPointIndex].y = y;
+      // Keep point 0 in sync
+      if (selectedPointIndex === 0) {
+        bezierControlPoints[0].x = x;
+        bezierControlPoints[0].y = y;
+      }
+    } else {
+      bezierControlPoints[selectedPointIndex].x = x;
+      bezierControlPoints[selectedPointIndex].y = y;
+      // Keep point 0 in sync
+      if (selectedPointIndex === 0) {
+        NURBScontrolPoints[0].x = x;
+        NURBScontrolPoints[0].y = y;
+      }
+    }
+    
+    draw();
+  }
+}
+
+function updatePointWeight() {
+  if (selectedPointIndex >= 0 && selectedCurve === 'NURBS') {
     const weight = parseFloat(document.getElementById('weightInput').value);
     if (!isNaN(weight)) {
       NURBScontrolPoints[selectedPointIndex].weight = weight;
       draw();
     }
-    // Não fechar o menu de contexto aqui para possibilitar ajustes.
   }
 }
 
@@ -273,15 +336,6 @@ function deleteSelectedPoint() {  //usada por clique em remover ponto. Remove o 
   }
 }
 
-function updatePosition(){    //atualizar para tratar também de bézier.
-  if (selectedPointIndex >= 0) {
-    const x = parseFloat(document.getElementById('setX').value);
-    const y = parseFloat(document.getElementById('setY').value);
-    NURBScontrolPoints[selectedPointIndex].x = x;
-    NURBScontrolPoints[selectedPointIndex].y = y;
-    draw();
-  }
-}
 
 
 /*** Gerenciamento de vetor de nós: */
@@ -589,17 +643,31 @@ function getCanvasCoords(canvas, clientX, clientY) {
     y: (clientY - rect.top) * scaleY
   };
 }
+
+
 function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {
+  // Check NURBS points first
   for (let i = 0; i < NURBScontrolPoints.length; i++) {
     const dot = NURBScontrolPoints[i];
     const distance = Math.sqrt((x - dot.x) ** 2 + (y - dot.y) ** 2);
     if (distance <= threshold) {
-      return i; // Return index of found point
+      selectedCurve = 'NURBS';
+      return i;
     }
   }
-  return -1; // Return -1 if no point found
+  
+  // Then check Bézier points
+  for (let i = 0; i < bezierControlPoints.length; i++) {
+    const dot = bezierControlPoints[i];
+    const distance = Math.sqrt((x - dot.x) ** 2 + (y - dot.y) ** 2);
+    if (distance <= threshold) {
+      selectedCurve = 'BEZIER';
+      return i;
+    }
+  }
+  
+  return -1;
 }
-
 
 function isContextMenuOpen() {  
   //if (selectedPointIndex >= 0) pode ser suficiente em vez disso, mas, na prática, tanto faz.
