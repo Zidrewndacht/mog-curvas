@@ -16,40 +16,69 @@
       <div class="ui-info">
         <h1><span style="color:#004015c0">NURBS grau 3</span> + <span style="color:darkred">Bézier Grau 7</span></h1>
         <p>Mova os pontos de controle existentes arrastando-os com o botão esquerdo do mouse.</p>
-        <p>Clique (ou toque) com o botão esquerdo no espaço vazio para adicionar novo ponto à <span style="font-weight: bold;color:#004015c0">curva 1</span>. 
+        <p>Clique <!--(ou toque)--> com o botão esquerdo no espaço vazio para adicionar novo ponto à <span style="font-weight: bold;color:#004015c0">curva 1</span>. 
           <br>A <span style="font-weight: bold;color:darkred">curva 2</span> possui número fixo de pontos de controle (8).<br>
-        <p>Clique com o botão direito (ou segure com o dedo) sobre um ponto para configurar (posição e peso, se aplicável) ou
-          remover o ponto.<br>
+        <p>Clique com o botão direito <!--(ou segure com o dedo)--> sobre um ponto para configurar (posição e peso, se aplicável) ou
+          remover o ponto. Pontos da curva de bézier não são removíveis.<br>
         <p>Clique na engrenagem no canto superior esquerdo para minimizar ou re-exibir esta página de configuração.<br>
         <p>Ajuste as configurações globais a seguir conforme necessário:</p>
       </div>
       <div class="controls-wrapper">
         <div class="control-group" id="NURBS-settings">
-          <label for="NURBSknotVector">Vetor de nós da NURBS:</label>
-          <input type="text" id="NURBSknotVector">
-          <button id="resetKnots">Restaurar</button>
-          <button id="applyKnots" style="display:none;">Aplicar</button>
+          <!-- <h1>Configurações das curvas</h1> -->
+          <div id="NURBSKnotWrapper">
+            <label for="NURBSknotVector">Vetor de nós da NURBS:</label>
+            <input type="text" id="NURBSknotVector">
+            <button id="resetKnots">Restaurar</button>
+            <button id="applyKnots" style="display:none;">Aplicar</button>
+          </div>
+          <div class="checkbox-item">
+              <input type="checkbox" id="forceC0" checked disabled>
+              <label for="forceC0" class="checkbox-lbl">Forçar C0</label>
+          </div>
+          <div class="checkbox-item">
+              <input type="checkbox" id="forceC1" title="Ativar esta opção manipula automaticamente os pontos 1 ao interagir com pontos 0 ou 1. Também desabilita o ajuste de pesos e/ou a exclusão do ponto 1 da NURBS." checked>
+              <label for="forceC1" class="checkbox-lbl" >Forçar C1</label>
+          </div>
+          <div class="checkbox-item">
+              <input type="checkbox" id="forceC2">
+              <label for="forceC2" class="checkbox-lbl">Forçar C2</label>
+          </div>
+          <div id="sampleCount-container">
+              <label for="sampleCount" class="setting-lbl">Número de amostras:</label>
+              <input type="number" id="sampleCount" min="100" max="50000" value="1000" step="100">
+          </div>
         </div>
 
-        <div class="control-group" id="general-settings">
-          <input type="checkbox" id="showControlPolygon" checked>
-          <label for="showControlPolygon" class="checkbox-lbl">Exibir polígono de controle</label>
-          <input type="checkbox" id="showControlPoints" checked>
-          <label for="showControlPoints" class="checkbox-lbl">Exibir pontos de controle</label>
-          <input type="checkbox" id="showPointIndex" checked>
-          <label for="showPointIndex" class="checkbox-lbl">Exibir índices</label>
-          <input type="checkbox" id="showWeights">
-          <label for="showWeights" class="checkbox-lbl">Exibir pesos</label>
-          <input type="checkbox" id="showKnots">
-          <label for="showKnots" class="checkbox-lbl">Exibir nós</label>
-          <label for="sampleCount" class="setting-lbl">Número de amostras:</label>
-          <input type="number" id="sampleCount" min="10" max="50000" value="1000" step="10">
+        <div class="control-group" id="view-settings">
+            <!-- <h1>Configurações da visualização</h1> -->
+            <div class="checkbox-item">
+                <input type="checkbox" id="showControlPolygon" checked>
+                <label for="showControlPolygon" class="checkbox-lbl">Exibir polígono <br>de controle</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showControlPoints" checked>
+                <label for="showControlPoints" class="checkbox-lbl">Exibir pontos <br>de controle</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showPointIndex">
+                <label for="showPointIndex" class="checkbox-lbl">Exibir <br>índices</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showWeights">
+                <label for="showWeights" class="checkbox-lbl">Exibir <br>pesos</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showKnots">
+                <label for="showKnots" class="checkbox-lbl">Exibir <br>nós</label>
+            </div>
         </div>
       </div>
     </div>
   </div>
   <!-- Usando técnica similar à de IoT-entrada-escola para animar popup. -->
   <div id="pointContextMenu" class="context-menu hidden">
+    <div class="menu-item" id="contextTitle">Editando: <strong><span id="contextCurveTitle"></span></strong></div>
     <div id="setXYZ">
       <div class="menu-item">x:
         <input type="number" id="setX" class="menu-number-input" step="1" @click.stop>
@@ -64,10 +93,11 @@
     <div class="menu-item" id="setWeight"><span>Peso: </span>
       <input type="number" id="weightInput" class="menu-number-input" step="0.1" value="1.0" @click.stop>
     </div>
-    <div class="menu-item" id="deletePoint"><span>Remover ponto</span></div>
+    <div class="menu-item" id="deletePoint"><span>Remover ponto 🗑️ </span></div>
   </div>
 
   <div id="pointInfoPopup" class="context-menu hidden">
+    <div class="menu-item">Tipo: <span id="curveType"></span></div>
     <div class="menu-item">Ponto: <span id="pointIndex">0</span></div>
     <div class="menu-item">Posição x, y, z:
       <span class="coords">
