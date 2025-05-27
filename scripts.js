@@ -42,22 +42,26 @@ let hoveredPointIndex = -1;
 const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão direito/arrastar
 const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima para criação de novo ponto.
 
-function setupCanvas() { //usada em init e redumensionamento.
+function setupCanvas() {
   const dpr = window.devicePixelRatio || 1;
   const container = canvas.parentElement || document.body;
 
+  // Calculate display dimensions
   const displayWidth = container.clientWidth;
   const displayHeight = window.innerHeight;
 
+  // Set the canvas display size
   canvas.style.width = `${displayWidth}px`;
   canvas.style.height = `${displayHeight}px`;
-  canvas.width = displayWidth * dpr;
-  canvas.height = displayHeight * dpr;
+
+  // Set the backing buffer size (round to nearest integer)
+  canvas.width = Math.round(displayWidth * dpr);
+  canvas.height = Math.round(displayHeight * dpr);
 
   ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  draw(); //renderiza novamente a cada alteração.
+  draw();
 }
 
 function initCanvas() {
@@ -513,6 +517,7 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
   const showWeights = document.getElementById('showWeights').checked;
   const showControlPoints = document.getElementById('showControlPoints').checked;
   const showPointIndex = document.getElementById('showPointIndex').checked;
+  const showKnots = document.getElementById('showKnots').checked;
 
   if (showControlPolygon) {
     ctx.beginPath();
@@ -538,13 +543,6 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
     ctx.stroke();
   }
 
-  if (showWeights) {
-    NURBScontrolPoints.forEach((point, index) => {
-        ctx.fillStyle = '#000';
-        ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
-    });
-  }
-
   if (showPointIndex){
     NURBScontrolPoints.forEach((point, index) => {
       ctx.fillStyle = '#208030e0';
@@ -558,10 +556,39 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
 
   drawNURBScurve();
   drawBezierCurve();
+
+  if (showWeights) {
+    NURBScontrolPoints.forEach((point, index) => {
+        ctx.font = '10px system-ui';
+        ctx.fillStyle = '#010';
+        ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
+    });
+  }
+
   //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
-  const showKnots = document.getElementById('showKnots').checked;
   if (showKnots && selectedCurve === 'NURBS') {
-    drawKnotMarkers();
+    const u_min = NURBSknotVector[degree];
+    const u_max = NURBSknotVector[NURBSknotVector.length - degree - 1];
+    
+    const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
+    
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    uniqueKnots.forEach(u => {
+      const point = evaluateNURBS(u, degree, NURBScontrolPoints, NURBSknotVector);
+      
+      // Draw a smaller circle at the knot position
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#208030';
+      ctx.fill();
+      
+      // Display the knot value below the marker
+      ctx.fillStyle = '#208030';
+      ctx.fillText(u.toFixed(2), point.x, point.y + 15);
+    });
   }
 
   if (showControlPoints){
@@ -582,28 +609,6 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
 }
 
 function drawKnotMarkers() {
-  const u_min = NURBSknotVector[degree];
-  const u_max = NURBSknotVector[NURBSknotVector.length - degree - 1];
-  
-  const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
-  
-  ctx.font = '10px system-ui';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  
-  uniqueKnots.forEach(u => {
-    const point = evaluateNURBS(u, degree, NURBScontrolPoints, NURBSknotVector);
-    
-    // Draw a smaller circle at the knot position
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#208030';
-    ctx.fill();
-    
-    // Display the knot value above the marker
-    ctx.fillStyle = '#208030';
-    ctx.fillText(u.toFixed(2), point.x, point.y - 20);
-  });
 }
 
 
