@@ -87,7 +87,6 @@ function initCanvas() {
   document.getElementById('showPointIndex').addEventListener('change', draw);
   document.getElementById('showKnots').addEventListener('change', draw);
   document.getElementById('showWeights').addEventListener('change', draw);
-  document.getElementById('showKnots').addEventListener('change', draw);
 
   document.getElementById("forceC1").addEventListener("change", function() {
     if (this.checked) {
@@ -507,105 +506,113 @@ function resetNURBSknotVector() {  //usado por updateNURBSknotVector() e evento 
 
 
 function draw() { //precisa ser atualizado para renderizar também bézier.
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = '12px system-ui';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
+  requestAnimationFrame(() => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '12px system-ui';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
 
-  //Polígono de controle:
-  const showControlPolygon = document.getElementById('showControlPolygon').checked;
-  const showWeights = document.getElementById('showWeights').checked;
-  const showControlPoints = document.getElementById('showControlPoints').checked;
-  const showPointIndex = document.getElementById('showPointIndex').checked;
-  const showKnots = document.getElementById('showKnots').checked;
+    //Polígono de controle:
+    const showControlPolygon = document.getElementById('showControlPolygon').checked;
+    const showWeights = document.getElementById('showWeights').checked;
+    const showControlPoints = document.getElementById('showControlPoints').checked;
+    const showPointIndex = document.getElementById('showPointIndex').checked;
+    const showKnots = document.getElementById('showKnots').checked;
 
-  if (showControlPolygon) {
-    ctx.beginPath();
-    ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
-    for (let i = 1; i < NURBScontrolPoints.length; i++) {
-      ctx.lineTo(NURBScontrolPoints[i].x, NURBScontrolPoints[i].y);
+    if (showControlPolygon) {
+      ctx.beginPath();
+      ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
+      for (let i = 1; i < NURBScontrolPoints.length; i++) {
+        ctx.lineTo(NURBScontrolPoints[i].x, NURBScontrolPoints[i].y);
+      }
+      ctx.moveTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
+      for (let i = 1; i < bezierControlPoints.length; i++) {
+        ctx.lineTo(bezierControlPoints[i].x, bezierControlPoints[i].y);
+      }
+      ctx.strokeStyle = '#b8b8b8';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      //linha mais sutil do último ponto ao primeiro:
+      ctx.beginPath();
+      ctx.moveTo(NURBScontrolPoints[NURBScontrolPoints.length-1].x, NURBScontrolPoints[NURBScontrolPoints.length-1].y);
+      ctx.lineTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
+      ctx.moveTo(bezierControlPoints[bezierControlPoints.length-1].x, bezierControlPoints[bezierControlPoints.length-1].y);
+      ctx.lineTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
+      ctx.strokeStyle = '#b8b8b848'; 
+      ctx.stroke();
     }
-    ctx.moveTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
-    for (let i = 1; i < bezierControlPoints.length; i++) {
-      ctx.lineTo(bezierControlPoints[i].x, bezierControlPoints[i].y);
-    }
-    ctx.strokeStyle = '#b8b8b8';
-    ctx.lineWidth = 1;
-    ctx.stroke();
 
-    //linha mais sutil do último ponto ao primeiro:
-    ctx.beginPath();
-    ctx.moveTo(NURBScontrolPoints[NURBScontrolPoints.length-1].x, NURBScontrolPoints[NURBScontrolPoints.length-1].y);
-    ctx.lineTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
-    ctx.moveTo(bezierControlPoints[bezierControlPoints.length-1].x, bezierControlPoints[bezierControlPoints.length-1].y);
-    ctx.lineTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
-    ctx.strokeStyle = '#b8b8b848'; 
-    ctx.stroke();
-  }
-
-  if (showPointIndex){
-    NURBScontrolPoints.forEach((point, index) => {
-      ctx.fillStyle = '#208030e0';
-      ctx.fillText(index.toString(), point.x - 5, point.y - 15);
-    });
-    bezierControlPoints.forEach((point, index) => {
-        ctx.fillStyle = '#802030e0';
+    if (showPointIndex){
+      NURBScontrolPoints.forEach((point, index) => {
+        ctx.fillStyle = '#208030e0';
         ctx.fillText(index.toString(), point.x - 5, point.y - 15);
-    });
-  }  
+      });
+      bezierControlPoints.forEach((point, index) => {
+          ctx.fillStyle = '#802030e0';
+          ctx.fillText(index.toString(), point.x - 5, point.y - 15);
+      });
+    }  
 
-  drawNURBScurve();
-  drawBezierCurve();
+    drawNURBScurve();
+    drawBezierCurve();
 
-  if (showWeights) {
-    NURBScontrolPoints.forEach((point, index) => {
-        ctx.font = '10px system-ui';
-        ctx.fillStyle = '#010';
-        ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
-    });
-  }
+    if (showWeights) {
+      NURBScontrolPoints.forEach((point, index) => {
+          ctx.font = '10px system-ui';
+          ctx.fillStyle = '#010';
+          ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
+      });
+    }
 
-  //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
-  if (showKnots && selectedCurve === 'NURBS') {
-    const u_min = NURBSknotVector[degree];
-    const u_max = NURBSknotVector[NURBSknotVector.length - degree - 1];
-    
-    const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
-    
-    ctx.font = '10px system-ui';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    
-    uniqueKnots.forEach(u => {
-      const point = evaluateNURBS(u, degree, NURBScontrolPoints, NURBSknotVector);
+    //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
+    if (showKnots) {
+      const u_min = NURBSknotVector[degree];
+      const u_max = NURBSknotVector[NURBSknotVector.length - degree - 1];
       
-      // Draw a smaller circle at the knot position
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#208030';
-      ctx.fill();
+      const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
       
-      // Display the knot value below the marker
-      ctx.fillStyle = '#208030';
-      ctx.fillText(u.toFixed(2), point.x, point.y + 15);
-    });
-  }
-
-  if (showControlPoints){
-    NURBScontrolPoints.forEach((point, index) => {
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#208030';
-      ctx.fill();
-
-    });
-    bezierControlPoints.forEach((point, index) => {
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      
+      uniqueKnots.forEach(u => {
+        const point = evaluateNURBS(u, degree, NURBScontrolPoints, NURBSknotVector);
+        
+        // Draw a smaller circle at the knot position
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = '#802030'; // Red for Bézier
+        ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#208030';
         ctx.fill();
-    });
-  }
+        
+        // Display the knot value below the marker
+        ctx.fillStyle = '#208030';
+        ctx.fillText(u.toFixed(2), point.x, point.y + 15);
+      });
+    }
+
+    if (showControlPoints){
+      NURBScontrolPoints.forEach((point, index) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#208030';
+        ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = '#050'; // Red for Bézier
+          ctx.stroke();
+
+      });
+      bezierControlPoints.forEach((point, index) => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#802030'; // Red for Bézier
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = '#500'; // Red for Bézier
+          ctx.stroke();
+      });
+    }
+  })
 }
 
 function drawKnotMarkers() {
