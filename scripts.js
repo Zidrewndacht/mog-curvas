@@ -1,20 +1,34 @@
+/** Variáveis Globais: */
 let canvas, ctx;
 let isUIMinimized = false;
 const uiWrapper = document.getElementById('ui-controls-wrapper');
 const minimizeToggle = document.getElementById('minimize-toggle');
+const contextMenu = document.getElementById('pointContextMenu');
+
+//Variáveis para interação com interface (contexto, arrasto, hover)
+let selectedPointIndex = -1; // Ponto selecionado para configuração durante clique de botão direito.
+let isDragging = false;
+let dragPointIndex = -1;
+let dragStartPos = { x: 0, y: 0 }; 
+let hoverTimeout;
+let hoveredPointIndex = -1; //ponto sob o mouse durante tooltip
+
+const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão direito/arrastar
+const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima para criação de novo ponto.
 
 let selectedCurve = 'NURBS'; // or 'Bézier'
-const degree = 3; //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva.
 let NURBSknotVector = [];
+
+const DEGREE = 4; //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva.
 
 let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 590, y: 600, z: 0, weight: 1 },
     { x: 620, y: 700, z: 0, weight: 1 },
     { x: 700, y: 720, z: 0, weight: 1 },
     { x: 800, y: 200, z: 0, weight: 1 },
-    { x: 790, y: 750, z: 0, weight: 0.5 },
+    { x: 790, y: 750, z: 0, weight: 1 },
     { x: 900, y: 600, z: 0, weight: 1 },
-    { x: 700, y: 490, z: 0, weight: 1.25 },
+    { x: 700, y: 490, z: 0, weight: 1 },
     { x: 660, y: 550, z: 0, weight: 1 },
 ];
 
@@ -29,32 +43,21 @@ let bezierControlPoints = [ //Curva inicial (pré-definida)
     { x: 530, y: 650, z: 0 },
 ];
 
-const contextMenu = document.getElementById('pointContextMenu');
 
-//Variáveis para interação com interface (contexto, dragging, hover)
-let selectedPointIndex = -1; // Ponto selecionado para configuração durante clique de botão direito.
-let isDragging = false;
-let dragPointIndex = -1;
-let dragStartPos = { x: 0, y: 0 }; 
-let hoverTimeout;
-let hoveredPointIndex = -1;
-
-const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão direito/arrastar
-const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima para criação de novo ponto.
-
-function setupCanvas() {
-  const dpr = window.devicePixelRatio || 1;
-  const container = canvas.parentElement || document.body;
-
-  // Calculate display dimensions
-  const displayWidth = container.clientWidth;
+/** Usada em init e redumensionamento.
+ * Configura canvas considerando resolução real
+ * em qualquer nível de zoom ou em telas de alto DPI */
+function setupCanvas() {  //OK
+  const dpr = window.devicePixelRatio || 1; 
+  const displayWidth = canvas.parentElement.clientWidth;
   const displayHeight = window.innerHeight;
 
-  // Set the canvas display size
+  // Define tamanho do canvas (pixels "efetivos" do CSS)
   canvas.style.width = `${displayWidth}px`;
   canvas.style.height = `${displayHeight}px`;
 
-  // Set the backing buffer size (round to nearest integer)
+  // Define tamanho da renderização (pixels reais)
+  // Arredondado para inteiro mais próximo para evitar blur em certos níveis de zoom
   canvas.width = Math.round(displayWidth * dpr);
   canvas.height = Math.round(displayHeight * dpr);
 
@@ -64,7 +67,10 @@ function setupCanvas() {
   draw();
 }
 
-function initCanvas() {
+
+/** Executada ao iniciar a aplicação. 
+ * Configura canvas, vetor de nós e eventos de interação: */
+function initCanvas() { //ok
   canvas = document.getElementById('curves-canvas');
   setupCanvas();  //usada em init e redumensionamento.
 
@@ -73,40 +79,35 @@ function initCanvas() {
   // Event listeners
   minimizeToggle.addEventListener('click', toggleUIVisibility);
 
-  window.addEventListener('resize', setupCanvas); //sempre reconfigura canvas após redimensionamento
-  canvas.addEventListener('contextmenu', handleRightClick);
-  canvas.addEventListener('click', handleCanvasClick);
-  document.addEventListener('click', handleDocumentClick);
-  
-  canvas.addEventListener('mousedown', handleMouseDown);
-  canvas.addEventListener('mousemove', handleMouseMove);
-  canvas.addEventListener('mouseup', handleMouseUp);
+  window.addEventListener('resize',       setupCanvas);             //sempre reconfigura canvas após redimensionamento
+  canvas.addEventListener('contextmenu',  openContextMenu);         
+  canvas.addEventListener('click',        handleCanvasClick);       //cria novo ponto
+  document.addEventListener('click',      handleDocumentClick);     //fecha menu de contexto
+  canvas.addEventListener('mousedown',    handleMouseDown);         //inicia arrasto
+  canvas.addEventListener('mousemove',    handleMouseMove);         //durante arrasto
+  canvas.addEventListener('mouseup',      handleMouseUp);           //termina arrasto
 
-  document.getElementById('showControlPolygon').addEventListener('change', draw);
-  document.getElementById('showControlPoints').addEventListener('change', draw);
-  document.getElementById('showPointIndex').addEventListener('change', draw);
-  document.getElementById('showKnots').addEventListener('change', draw);
-  document.getElementById('showWeights').addEventListener('change', draw);
+  document.getElementById('showControlPolygon').addEventListener('change',  draw);
+  document.getElementById('showControlPoints'). addEventListener('change',  draw);
+  document.getElementById('showPointIndex').    addEventListener('change',  draw);
+  document.getElementById('showKnots').         addEventListener('change',  draw);
+  document.getElementById('showWeights').       addEventListener('change',  draw);
+  document.getElementById('sampleCount').       addEventListener('input',   draw);
 
-  document.getElementById("forceC1").addEventListener("change", function() {
-    if (this.checked) {
-      enforceColinearity();
-    }
-  });
+  document.getElementById("forceC1").addEventListener("change", enforceC1);   //atualizar, aparentemente apenas garante G1 atualmente
 
-  document.getElementById('sampleCount').addEventListener('input', draw);
 
   document.getElementById('setX').addEventListener('input', updatePosition);
   document.getElementById('setY').addEventListener('input', updatePosition);
-
   //setZ não necessário pois sempre é zero.
+
   document.getElementById('weightInput').addEventListener('input', updatePointWeight);
   document.getElementById('deletePoint').addEventListener('click', deleteSelectedPoint);
 
   //knot vector handling
-  document.getElementById('NURBSknotVector').addEventListener('input', validateNURBSknotVector);
-  document.getElementById('resetKnots').addEventListener('click', resetNURBSknotVector);
-  document.getElementById('applyKnots').addEventListener('click', applyNURBSknotVector);
+  document.getElementById('NURBSknotVector'). addEventListener('input', validateNURBSknotVector);
+  document.getElementById('resetKnots').      addEventListener('click', setNURBSknotVector);
+  document.getElementById('applyKnots').      addEventListener('click', applyNURBSknotVector);
 
 }
 
@@ -116,31 +117,29 @@ function initCanvas() {
 function toggleUIVisibility() {
     isUIMinimized = !isUIMinimized;
     
-    if (isUIMinimized) {
+    if (isUIMinimized) {  //animação:
         uiWrapper.classList.add('minimized');
         uiWrapper.addEventListener('transitionend', () => {
             uiWrapper.style.zIndex = '-1';
         }, { once: true });
-        minimizeToggle.textContent = '⛭';
     } else {
         uiWrapper.style.zIndex = '10';
         // Force reflow to ensure the z-index change is applied before animation
         void uiWrapper.offsetHeight;
         uiWrapper.classList.remove('minimized');
-        minimizeToggle.textContent = '⛭';
     }
 }
 
-function handleRightClick(e) {  // abre menu de contexto
+function openContextMenu(e) {
   e.preventDefault();
   e.stopPropagation();
   
   if (isDragging) return;
   
-  const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
-  selectedPointIndex = findControlPointAtPosition(x, y);
+  const { x, y } =      getCanvasCoords(canvas, e.clientX, e.clientY);
+  selectedPointIndex =  findControlPointAtPosition(x, y);   //retorna -1 se não há ponto sob o clique
 
-  if (selectedPointIndex >= 0) {
+  if (selectedPointIndex >= 0) {  //se clique acertou um ponto
     const currentPoints = selectedCurve === 'NURBS' ? NURBScontrolPoints : bezierControlPoints;
     const point = currentPoints[selectedPointIndex];
     document.getElementById('contextCurveTitle').textContent = selectedCurve;
@@ -148,31 +147,33 @@ function handleRightClick(e) {  // abre menu de contexto
     document.getElementById('setY').value = Math.round(point.y);
     document.getElementById('setZ').value = Math.round(point.z);
     
-    // Only show weight for NURBS points
+    // Habilita peso apenas para NURBS:
     const weightInput = document.getElementById('weightInput');
     weightInput.value = selectedCurve === 'NURBS' ? point.weight : 1;
     weightInput.disabled = selectedCurve !== 'NURBS';
-
+    // Habilita remoção de pontos apenas para NURBS (e apenas em pontos específicos cf. C1)
     const deleteOption = document.getElementById('deletePoint');
     const forceC1 = document.getElementById("forceC1").checked
-    if (forceC1){
-      deleteOption.classList.toggle('hidden-option', 
-        selectedCurve !== 'NURBS' || selectedPointIndex === 0 || selectedPointIndex === 1 || NURBScontrolPoints.length <= 4);
+    if (forceC1){ 
+      deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || selectedPointIndex === 1 || NURBScontrolPoints.length <= 4));
       if (selectedPointIndex == 0 || selectedPointIndex == 1) weightInput.disabled = true;
-    } else {
-    deleteOption.classList.toggle('hidden-option', 
-      selectedCurve !== 'NURBS' || selectedPointIndex === 0 || NURBScontrolPoints.length <= 4);
+    } else {  //sem C1, apenas ponto 0 é obrigatório.
+      deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || NURBScontrolPoints.length <= 4));
     }
-    // Impede de remover pontos de bézier, pontos comuns e pontos colineares.
-    
     
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
-    contextMenu.classList.remove('hidden');
-    contextMenu.classList.add('visible');
-  } else {
+    contextMenu.classList.add('visible');//abertura animada
+  } else {  //clique direito fora da área de qualquer ponto fecha menu de contexto existente.
     closeContextMenu();
   }
+}
+
+//Fechamento animado do menu de contexto. Inofensivo se chamado sem menu aberto:
+function closeContextMenu() {  
+  contextMenu.classList.remove('visible');
+  selectedPointIndex = -1;
+  hidePointInfoPopup(); 
 }
 
 function handleDocumentClick(e) {   //fecha menu de contexto:
@@ -181,21 +182,11 @@ function handleDocumentClick(e) {   //fecha menu de contexto:
   }
 }
 
-//Fechamento animado do menu de contexto
-function closeContextMenu() {  
-  contextMenu.classList.remove('visible');
-  setTimeout(() => {
-    contextMenu.classList.add('hidden');
-    selectedPointIndex = -1;
-  }, 200);
-  hidePointInfoPopup(); 
-}
-
 function handleCanvasClick(e) {
   if (!isContextMenuOpen() && e.button === 0 && !isDragging) {
     const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
     
-    // Only allow adding to NURBS curve
+    //Adiciona novo ponto à NURBS:
     if (findControlPointAtPosition(x, y, ADD_POINT_THRESHOLD) === -1) {
       NURBScontrolPoints.push({ x, y, z: 0, weight: 1 });
       updateNURBSknotVector();
@@ -203,8 +194,9 @@ function handleCanvasClick(e) {
     }
   }
 }
+
 function handleMouseDown(e) {
-  if (e.button !== 0) return;
+  if (e.button !== 0) return; //apenas botão esquerdo é utilizado.
   
   const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
   dragStartPos = { x, y };
@@ -233,68 +225,68 @@ function showPointInfoPopup(e, pointIndex) {
     ? NURBScontrolPoints[pointIndex] 
     : bezierControlPoints[pointIndex];
   
-  document.getElementById('curveType').textContent = selectedCurve;
+  document.getElementById('curveType'). textContent = selectedCurve;
   document.getElementById('pointIndex').textContent = pointIndex;
-  document.getElementById('pointX').textContent = Math.round(point.x);
-  document.getElementById('pointY').textContent = Math.round(point.y);
-  document.getElementById('pointZ').textContent = Math.round(point.z);
+  document.getElementById('pointX').    textContent = Math.round(point.x);
+  document.getElementById('pointY').    textContent = Math.round(point.y);
+  document.getElementById('pointZ').    textContent = Math.round(point.z);
   
   const weightElement = document.getElementById('pointWeight');
-  weightElement.textContent = selectedCurve === 'NURBS' 
-    ? point.weight.toFixed(1) 
-    : '1.0';
-  weightElement.parentElement.style.display = selectedCurve === 'NURBS' 
-    ? 'flex' 
-    : 'none';
+  weightElement.textContent = ((selectedCurve === 'NURBS') ? point.weight.toFixed(1) : '1.0');
+  weightElement.parentElement.style.display = ((selectedCurve === 'NURBS') ? 'flex' : 'none');
   
   const popup = document.getElementById('pointInfoPopup');
   popup.style.left = `${e.clientX + 15}px`;
   popup.style.top = `${e.clientY + 15}px`;
-  popup.classList.remove('hidden');
   popup.classList.add('visible');
   hoveredPointIndex = pointIndex;
 }
 
-function hidePointInfoPopup() {
+function hidePointInfoPopup() { //fechamento animado:
   const popup = document.getElementById('pointInfoPopup');
-  popup.classList.remove('visible');
   setTimeout(() => {
-    popup.classList.add('hidden');
+    popup.classList.remove('visible');
     hoveredPointIndex = -1;
-  }, 200);
+  }, 300);
 }
-
-function enforceColinearity() {
+/** Atualizar, aparentemente isso só garante G1: 
+ * Reajusta pontos para garantir C1 ao ativar a opção
+ * Chamada por evento de checkbox:
+*/
+function enforceC1() {
   const forceC1 = document.getElementById("forceC1").checked;
-  if (!forceC1 ) return;
-
-  const point0 = bezierControlPoints[0];
-  const referenceVec = {
-    x: bezierControlPoints[1].x - point0.x,
-    y: bezierControlPoints[1].y - point0.y
-  };
-  
-  NURBScontrolPoints[1].x = point0.x - referenceVec.x;
-  NURBScontrolPoints[1].y = point0.y - referenceVec.y;
-  NURBScontrolPoints[1].weight = 1 //force weight (also disabled by context menu when forceC1 enabled)
+  if (forceC1){
+    const point0 = bezierControlPoints[0];
+    const referenceVec = {
+      x: bezierControlPoints[1].x - point0.x,
+      y: bezierControlPoints[1].y - point0.y
+    };
+    
+    NURBScontrolPoints[1].x = point0.x - referenceVec.x;
+    NURBScontrolPoints[1].y = point0.y - referenceVec.y;
+    NURBScontrolPoints[1].weight = 1 //force weight (also disabled by context menu when forceC1 enabled)
+  }
   draw();
 }
 
-/*** General point movement handler */
-function handlePointMovement(pointIndex, newX, newY) {  //usado por dragging e entradas numéricas x,y do menu de contexto.
-  // const forceC0 = document.getElementById("forceC0").checked
+/*** Gerenciamento geral de movimentação de pontos: 
+ * usado tanto por arrasto quanto por entradas numéricas x,y do menu de contexto.
+ * Inclui casos especiais.
+*/
+function handlePointMovement(pointIndex, newX, newY) { 
+  // const forceC0 = document.getElementById("forceC0").checked   //não implementado
   const forceC1 = document.getElementById("forceC1").checked
-  // const forceC2 = document.getElementById("forceC2").checked
+  // const forceC2 = document.getElementById("forceC2").checked   //a implementar
 
-  if (pointIndex === 0) {
+  if (pointIndex === 0) { //casos especiais para ponto 0
     const prevX = bezierControlPoints[0].x;
     const prevY = bezierControlPoints[0].y;
-    
+    //Sempre garante C0: pontos 0 das duas curvas são unidos:
     bezierControlPoints[0].x = newX;
     bezierControlPoints[0].y = newY;
     NURBScontrolPoints[0].x = newX;
     NURBScontrolPoints[0].y = newY;
-    if (forceC1){
+    if (forceC1){ //Atualizar, aparentemente isso só garante G1:
       const deltaX = newX - prevX;
       const deltaY = newY - prevY;
     
@@ -304,7 +296,7 @@ function handlePointMovement(pointIndex, newX, newY) {  //usado por dragging e e
       NURBScontrolPoints[1].x += deltaX;
       NURBScontrolPoints[1].y += deltaY;
     }
-  } else if (pointIndex === 1 && forceC1) { //caso colinearidade seja obrigatória:
+  } else if (pointIndex === 1 && forceC1) { //Atualizar, aparentemente isso só garante G1:
     const point0 = bezierControlPoints[0];
     const newVec = { x: newX - point0.x, y: newY - point0.y };
     
@@ -331,21 +323,17 @@ function handlePointMovement(pointIndex, newX, newY) {  //usado por dragging e e
 }
 
 function handleMouseMove(e) {
-  if (isDragging) {
-    hidePointInfoPopup();
-    closeContextMenu();
-    requestAnimationFrame(() => {
-      const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
-      handlePointMovement(dragPointIndex, x, y);
-      draw();
-    });
-    return;
-  }
-  
-  // Handle hover 
   const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
+  if (isDragging) { //se estiver arrastando ponto:
+    hidePointInfoPopup(); //garante que última tooltip não continue visível
+    closeContextMenu();   //garante que último menu de contexto não continue visível
+    handlePointMovement(dragPointIndex, x, y);
+    draw();
+    return;
+  }  
+
+  // verifica se há ponto sob o cursor para exibir tooltip após 0,5s:
   const pointIndex = findControlPointAtPosition(x, y);
-  
   if (pointIndex !== hoveredPointIndex) {
     clearTimeout(hoverTimeout);
     hidePointInfoPopup();
@@ -359,7 +347,7 @@ function handleMouseMove(e) {
   }
 }
 
-/*** Point management: */
+/*** Gerenciamento de pontos: */
 function updatePosition() {
   if (selectedPointIndex >= 0) {
     const x = parseFloat(document.getElementById('setX').value);
@@ -372,7 +360,7 @@ function updatePosition() {
 function updatePointWeight() {
   if (selectedPointIndex >= 0 && selectedCurve === 'NURBS') {
     const weight = parseFloat(document.getElementById('weightInput').value);
-    if (!isNaN(weight)) {
+    if (!isNaN(weight)) { //garante valor válido proveniente do campo antes de atualizar variável:
       NURBScontrolPoints[selectedPointIndex].weight = weight;
       draw();
     }
@@ -392,7 +380,6 @@ function deleteSelectedPoint() {  //usada por clique em remover ponto. Remove o 
 
 
 /*** Gerenciamento de vetor de nós: */
-
 function validateNURBSknotVector() {
   const knotInput = document.getElementById('NURBSknotVector');
   const applyButton = document.getElementById('applyKnots');
@@ -411,9 +398,9 @@ function validateNURBSknotVector() {
   const newKnots = inputText.split(',').map(str => parseFloat(str.trim()));
   
   // Verifica comprimento (grau + pontos de controle + 1)
-  const minLength = degree + NURBScontrolPoints.length + 1;
+  const minLength = DEGREE + NURBScontrolPoints.length + 1;
   if (newKnots.length < minLength) {
-    knotInput.setCustomValidity(`Vetor de nós precisa ter pelo menos ${minLength} valores para grau ${degree} com ${NURBScontrolPoints.length} pontos de controle`);
+    knotInput.setCustomValidity(`Vetor de nós precisa ter pelo menos ${minLength} valores para grau ${DEGREE} com ${NURBScontrolPoints.length} pontos de controle`);
     knotInput.reportValidity();
 
     applyButton.style.display = 'none';
@@ -452,8 +439,8 @@ function applyNURBSknotVector() {
 
     draw(); 
 }
-
-function updateNURBSknotVectorDisplay() {  //usado por updateNURBSknotVector e resetNURBSknotVector
+/** usado por updateNURBSknotVector e setNURBSknotVector */
+function updateNURBSknotVectorDisplay() {  
   // Limita exibição a 3 casas decimais:
   const formattedKnots = NURBSknotVector.map(k => {
     const num = typeof k === 'string' ? parseFloat(k) : k;
@@ -463,63 +450,77 @@ function updateNURBSknotVectorDisplay() {  //usado por updateNURBSknotVector e r
 }
 
 function updateNURBSknotVector() {
-  const requiredLength = degree + NURBScontrolPoints.length + 1;
+  const requiredLength = DEGREE + NURBScontrolPoints.length + 1;
   if (NURBSknotVector.length !== requiredLength) {
-    resetNURBSknotVector(); // Automatically adjust knot vector to match new point count
+    setNURBSknotVector(); // Automatically adjust knot vector to match new point count
   } else {
     updateNURBSknotVectorDisplay();
   }
 }
 
-function resetNURBSknotVector() {  //usado por updateNURBSknotVector() e evento de botão de reset. Revisar
-  // Reset to default for current degree and control points
-  const n = NURBScontrolPoints.length;
-  const k = degree + 1;
-  NURBSknotVector = [];
+/**Define vetor de nós como valores padrão para o grau e número de pontos.
+ * usado por updateNURBSknotVector() e evento de botão de reset. 
+ * Difere do padrão 0~1 porque a representação do vetor de nós fica mais legível
+ * (apenas valores inteiros) e não ocorre diferença na curva pois NURBS 
+ * considera apenas a distância relativa entre nós: */
+function setNURBSknotVector() {
+  const controlPoints = NURBScontrolPoints.length;
+  const knots = DEGREE + 1;
+  NURBSknotVector = []; //limpa vetor existente
   
-  // Start with degree+1 zeros
-  for (let i = 0; i < k; i++) {
+  // Inicia com 'grau+1' zeros (0) para clamping:
+  for (let i = 0; i < knots; i++) {
     NURBSknotVector.push(0);
   }
-  
-  // Add internal knots if needed (for n > k)
-  if (n > k) {
-    const internalKnots = n - k;
+  // Adiciona nós excedentes (para controlPoints > knots)
+  const internalKnots = controlPoints - knots;
+  if (controlPoints > knots) {
     for (let i = 1; i <= internalKnots; i++) {
-      // Format to max 3 decimal places
-      const knotValue = i / (internalKnots + 1);
-      NURBSknotVector.push(parseFloat(knotValue.toFixed(3)));
+      const knotValue = i 
+      NURBSknotVector.push(parseFloat(knotValue));
     }
   }
   
-  // End with degree+1 ones
-  for (let i = 0; i < k; i++) {
-    NURBSknotVector.push(1);
+  // Termina com 'grau+1' uns (1)
+  for (let i = 0; i < knots; i++) {
+    NURBSknotVector.push(internalKnots + 1);
   }
   
+  // Versão anterior (normalizado 0~1)
+  // if (controlPoints > knots) {
+  //   const internalKnots = controlPoints - knots;
+  //   for (let i = 1; i <= internalKnots; i++) {
+  //     const knotValue = i / (internalKnots + 1);  //distribui ~uniformemente entre 0 e 1
+  //     NURBSknotVector.push(parseFloat(knotValue.toFixed(3))); //3 dígitos para não poluir
+  //   }
+  // }
+  
+  // // Termina com grau+1 uns (1)
+  // for (let i = 0; i < knots; i++) {
+  //   NURBSknotVector.push(1);
+  // }
+
+
   updateNURBSknotVectorDisplay();
   document.getElementById('applyKnots').style.display = 'none';
   draw();
 }
 
-
-
-
-function draw() { //precisa ser atualizado para renderizar também bézier.
-  requestAnimationFrame(() => {
+function draw() {
+  requestAnimationFrame(() => { //limita taxa de atualização ao FPS do dispositivo:
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = '12px system-ui';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
-    //Polígono de controle:
-    const showControlPolygon = document.getElementById('showControlPolygon').checked;
-    const showWeights = document.getElementById('showWeights').checked;
-    const showControlPoints = document.getElementById('showControlPoints').checked;
-    const showPointIndex = document.getElementById('showPointIndex').checked;
-    const showKnots = document.getElementById('showKnots').checked;
+    // Identifica opções de visualização em uso:
+    const showControlPolygon =  document.getElementById('showControlPolygon').checked;
+    const showWeights =         document.getElementById('showWeights').checked;
+    const showControlPoints =   document.getElementById('showControlPoints').checked;
+    const showPointIndex =      document.getElementById('showPointIndex').checked;
+    const showKnots =           document.getElementById('showKnots').checked;
 
-    if (showControlPolygon) {
+    if (showControlPolygon) { //"Exibir polígono de controle"
       ctx.beginPath();
       ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
       for (let i = 1; i < NURBScontrolPoints.length; i++) {
@@ -543,7 +544,7 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
       ctx.stroke();
     }
 
-    if (showPointIndex){
+    if (showPointIndex){ //"Exibir índices"
       NURBScontrolPoints.forEach((point, index) => {
         ctx.fillStyle = '#208030e0';
         ctx.fillText(index.toString(), point.x - 5, point.y - 15);
@@ -556,19 +557,21 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
 
     drawNURBScurve();
     drawBezierCurve();
+    
+    //Nós e pontos de controle precisam aparecer 'por cima' das curvas, todo o resto 'por baixo':
 
-    if (showWeights) {
+    if (showWeights) { //"Exibir pesos"
       NURBScontrolPoints.forEach((point, index) => {
           ctx.font = '10px system-ui';
           ctx.fillStyle = '#010';
           ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
       });
     }
-
     //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
-    if (showKnots) {
-      const u_min = NURBSknotVector[degree];
-      const u_max = NURBSknotVector[NURBSknotVector.length - degree - 1];
+    if (showKnots) {  //"Exibir nós"
+      // revisar
+      const u_min = NURBSknotVector[DEGREE];
+      const u_max = NURBSknotVector[NURBSknotVector.length - DEGREE - 1];
       
       const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
       
@@ -577,7 +580,7 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
       ctx.textBaseline = 'top';
       
       uniqueKnots.forEach(u => {
-        const point = evaluateNURBS(u, degree, NURBScontrolPoints, NURBSknotVector);
+        const point = evaluateNURBS(u, DEGREE, NURBScontrolPoints, NURBSknotVector);
         
         // Draw a smaller circle at the knot position
         ctx.beginPath();
@@ -591,41 +594,32 @@ function draw() { //precisa ser atualizado para renderizar também bézier.
       });
     }
 
-    if (showControlPoints){
-      NURBScontrolPoints.forEach((point, index) => {
+    if (showControlPoints){ //"Exibir pontos de controle"
+      NURBScontrolPoints.forEach((point) => {
         ctx.beginPath();
         ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
         ctx.fillStyle = '#208030';
         ctx.fill();
           ctx.lineWidth = 1;
-          ctx.strokeStyle = '#050'; // Red for Bézier
+          ctx.strokeStyle = '#050'; 
           ctx.stroke();
-
       });
-      bezierControlPoints.forEach((point, index) => {
+      bezierControlPoints.forEach((point) => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-          ctx.fillStyle = '#802030'; // Red for Bézier
+          ctx.fillStyle = '#802030'; 
           ctx.fill();
           ctx.lineWidth = 1;
-          ctx.strokeStyle = '#500'; // Red for Bézier
+          ctx.strokeStyle = '#500'; 
           ctx.stroke();
       });
     }
   })
 }
 
-function drawKnotMarkers() {
-}
 
-
-
-
-
-
-
-/*** Mágica: (Implementaçã de Cox-De Boor segundo DS V3 -- reescrever cf. livro. */
-function basisFunction(i, p, u, knots) {
+/*** Mágica: (Implementação DS V3 -- reescrever cf. livro. */
+function basisFunction(i, p, u, knots) { //converter para De Boor
     if (p === 0) {
         // Handle the end of the interval inclusively
         if (u < knots[i] || u > knots[i + 1]) return 0.0;
@@ -641,12 +635,12 @@ function basisFunction(i, p, u, knots) {
     }
 }
 
-function evaluateNURBS(u, degree, NURBScontrolPoints, knots) {
+function evaluateNURBS(u, DEGREE, NURBScontrolPoints, knots) {
     let x = 0, y = 0, z = 0;
     let weightSum = 0;
 
     for (let i = 0; i < NURBScontrolPoints.length; i++) {  //para cada ponto de controle:
-        const basis = basisFunction(i, degree, u, knots);
+        const basis = basisFunction(i, DEGREE, u, knots);
         const weightedBasis = basis * NURBScontrolPoints[i].weight;
         x += NURBScontrolPoints[i].x * weightedBasis;
         y += NURBScontrolPoints[i].y * weightedBasis;
@@ -660,8 +654,7 @@ function evaluateNURBS(u, degree, NURBScontrolPoints, knots) {
     };
 }
 
-function evaluateBezier(t, points) {
-    // De Casteljau's algorithm
+function evaluateBezier(t, points) { // De Casteljau's algorithm
     const n = points.length - 1;
     let workingPoints = [...points];
     
@@ -674,9 +667,10 @@ function evaluateBezier(t, points) {
             };
         }
     }
-    
     return workingPoints[0];
 }
+/*** Fim da mágica. */
+
 
 function drawBezierCurve() {
     const sampleCount = parseInt(document.getElementById('sampleCount').value) || 100;
@@ -704,18 +698,19 @@ function drawNURBScurve() {
     ctx.beginPath();
 
     // Get the valid parameter range [u_min, u_max]
-    const u_min = NURBSknotVector[degree];
-    const u_max = NURBSknotVector[NURBSknotVector.length - degree - 1];
+    const u_min = NURBSknotVector[DEGREE];
+    const u_max = NURBSknotVector[NURBSknotVector.length - DEGREE - 1];
     const delta = (u_max - u_min) / sampleCount;
 
     // Evaluate first point
-    const startPoint = evaluateNURBS(u_min, degree, NURBScontrolPoints, NURBSknotVector);
+    const startPoint = evaluateNURBS(u_min, DEGREE, NURBScontrolPoints, NURBSknotVector);
     ctx.moveTo(startPoint.x, startPoint.y);
 
     // Sample the curve within the valid range
     for (let i = 1; i <= sampleCount; i++) {
-        const u = u_min + i * delta * (1 - 1e-30);
-        const point = evaluateNURBS(u, degree, NURBScontrolPoints, NURBSknotVector);
+        // const u = u_min + i * delta * (1 - 1e-30);
+        const u = Math.min(u_min + i * delta, u_max - Number.EPSILON);
+        const point = evaluateNURBS(u, DEGREE, NURBScontrolPoints, NURBSknotVector);
         ctx.lineTo(point.x, point.y);
     }
 
@@ -724,7 +719,6 @@ function drawNURBScurve() {
     ctx.stroke();
 }
 
-/*** Fim da mágica. */
 
 
 
@@ -742,30 +736,36 @@ function getCanvasCoords(canvas, clientX, clientY) {
   };
 }
 
-
 function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {
-  // Check NURBS points first
-  for (let i = 0; i < NURBScontrolPoints.length; i++) {
-    const dot = NURBScontrolPoints[i];
-    const distance = Math.sqrt((x - dot.x) ** 2 + (y - dot.y) ** 2);
-    if (distance <= threshold) {
+  // Pré-calcula limites quadrados para evitar Math.sqrt():
+  const thresholdSquared = threshold * threshold;
+  
+  // Procura por pontos da NURBS na área sob o cursor/clique
+  for (let i = NURBScontrolPoints.length - 1; i >= 0; i--) {
+    const point = NURBScontrolPoints[i];
+    const dx = x - point.x;
+    const dy = y - point.y;
+    if (dx * dx + dy * dy <= thresholdSquared) {
       selectedCurve = 'NURBS';
       return i;
     }
   }
-  
-  // Then check Bézier points
-  for (let i = 0; i < bezierControlPoints.length; i++) {
-    const dot = bezierControlPoints[i];
-    const distance = Math.sqrt((x - dot.x) ** 2 + (y - dot.y) ** 2);
-    if (distance <= threshold) {
+
+  // Em seguida procura por pontos de bézier:
+  for (let i = bezierControlPoints.length - 1; i >= 0; i--) {
+    const point = bezierControlPoints[i];
+    const dx = x - point.x;
+    const dy = y - point.y;
+    if (dx * dx + dy * dy <= thresholdSquared) {
       selectedCurve = 'Bézier';
       return i;
     }
   }
-  
+
   return -1;
 }
+
+
 
 function isContextMenuOpen() {  
   //if (selectedPointIndex >= 0) pode ser suficiente em vez disso, mas, na prática, tanto faz.
