@@ -6,20 +6,22 @@ OK  Corrigir menu de contexto fora do viewport quando próximo do limite inferio
 OK  Ajustar x, y do ponto também com clique do botão direito.
 OK  Ocultar/exibir configurações gerais;
 OK  Implementar checkbox para exibir nós;
-x   Exibir parâmetro t (aka u);
-    Popup de sobre/licença;
+
 OK? Grid layout de interface de configuração;
 OK  Corrigir bug HiDPI (borrado em alguns níveis de zoom)
     Implementar eventos de touch (celular/C630)
     Implementar eventos de caneta (X380Y)
 
-    Implementar zoom vetorial?
+OK  Implementar zoom vetorial?
+OK  Implementar panning
 OK  Impedir de remover ponto comum às curvas.
 OK  Mover ponto comum de ambas as curvas simultaneamente.
-    Implementar C0 opcional?
-    
+x   Implementar C0 opcional?
+x   Exibir parâmetro t? (aka u);
 
     Implementar tema escuro / automático?
+    Popup de sobre/licença;
 
     Implementar Ctrl+Z? (pode não ser tão trivial assim para drag?)
-    Tooltips para checkboxes, botões, etc - usar mesmo estilo usado nos popups sobre pontos.
+    Tooltips para checkboxes, botões, etc
+        usar mesmo estilo usado nos popups sobre pontos?

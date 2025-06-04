@@ -51,6 +51,10 @@ let NURBStangent = {x:-45, y:-45, mag:0, angle:0}
 
 let zoomLevel = 1.0;
 let zoomOrigin = { x: 0, y: 0 };
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+let panOffset = { x: 0, y: 0 };
+let isPanRelease = false;  // Tracks if we're handling a mouseup after panning
 
 /** Usada em init e redumensionamento.
  * Configura canvas considerando resolução real
@@ -196,10 +200,14 @@ function handleDocumentClick(e) {
 }
 
 function handleCanvasClick(e) {
-  if (!isContextMenuOpen() && e.button === 0 && !isDragging) {
+  if (isPanRelease) {
+    isPanRelease = false;
+    return;
+  }
+  
+  if (!isContextMenuOpen() && e.button === 0 && !isDragging && !isPanning) {
     const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
     
-    //Se não existe ponto aqui, adiciona novo ponto à NURBS:
     if (findControlPointAtPosition(x, y, ADD_POINT_THRESHOLD) === -1) {
       NURBScontrolPoints.push({ x, y, z: 0, weight: 1 });
       setNURBSknotVector();
@@ -207,19 +215,21 @@ function handleCanvasClick(e) {
     }
   }
 }
-
 function handleWheel(e) {
   e.preventDefault();
   
-  // Get coordinates BEFORE zoom transformation
+  // Store current mouse position before resetting pan
   const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
   
+  // Reset pan when zooming
+  panOffset = { x: 0, y: 0 };
+  
   const delta = e.deltaY > 0 ? -0.1 : 0.1;
-  const newZoom = Math.max(1.0, zoomLevel + delta);
+  const newZoom = Math.min(Math.max(1.0, zoomLevel + delta), 4.0);
 
   if (newZoom !== zoomLevel) {
     zoomLevel = newZoom;
-    zoomOrigin = { x, y }; // Store in canvas space
+    zoomOrigin = { x, y };
     draw();
   }
 }
@@ -238,6 +248,11 @@ function handleMouseDown(e) {
       showDebugPopup();
       draw()
     }
+  } else {
+      isPanning = true;
+      isPanRelease = false;  // Reset on new pan start
+      panStart = { x: e.clientX, y: e.clientY };
+      canvas.style.cursor = 'grabbing';
   }
 }
 
@@ -247,8 +262,55 @@ function handleMouseUp() {
     isDragging = false;
     dragPointIndex = -1;
     canvas.style.cursor = '';
+  } else if (isPanning) {
+    isPanning = false;
+    canvas.style.cursor = '';
+    // No need to set anything here - isPanRelease already tracks if we panned
   }
   hidePointInfoPopup();
+}
+
+function handleMouseMove(e) {
+  const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
+  
+  if (isPanning) {
+    const newOffsetX = panOffset.x + (e.clientX - panStart.x);
+    const newOffsetY = panOffset.y + (e.clientY - panStart.y);
+    
+    // Calculate max pan based on zoom level (no panning at 100% zoom)
+    const maxPanX = canvas.width * (zoomLevel - 1) / 2;
+    const maxPanY = canvas.height * (zoomLevel - 1) / 2;
+    
+    // Apply bounds checking
+    panOffset.x = Math.max(-maxPanX, Math.min(maxPanX, newOffsetX));
+    panOffset.y = Math.max(-maxPanY, Math.min(maxPanY, newOffsetY));
+    
+    panStart = { x: e.clientX, y: e.clientY };
+    isPanRelease = true;  // Mark that actual panning occurred
+    draw();
+    return;
+  }
+  if (isDragging) { //se estiver arrastando ponto:
+    hidePointInfoPopup(); //garante que última tooltip não continue visível
+    closeContextMenu();   //garante que último menu de contexto não continue visível
+    handlePointMovement(dragPointIndex, x, y);
+    draw();
+    return;
+  }  
+
+  // verifica se há ponto sob o cursor para exibir tooltip após 0,5s:
+  const pointIndex = findControlPointAtPosition(x, y);
+  if (pointIndex !== hoveredPointIndex) {
+    clearTimeout(hoverTimeout);
+    hidePointInfoPopup();
+    
+    if (pointIndex >= 0 && !isContextMenuOpen()) {
+      hoverTimeout = setTimeout(() => {
+        showPointInfoPopup(e, pointIndex);
+      }, 500);
+    }
+    hoveredPointIndex = pointIndex;
+  }
 }
 
 function showPointInfoPopup(e, pointIndex) {
@@ -440,31 +502,6 @@ function handlePointMovement(pointIndex, newX, newY) {
   }
 }
 
-function handleMouseMove(e) {
-  const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
-  if (isDragging) { //se estiver arrastando ponto:
-    hidePointInfoPopup(); //garante que última tooltip não continue visível
-    closeContextMenu();   //garante que último menu de contexto não continue visível
-    handlePointMovement(dragPointIndex, x, y);
-    draw();
-    return;
-  }  
-
-  // verifica se há ponto sob o cursor para exibir tooltip após 0,5s:
-  const pointIndex = findControlPointAtPosition(x, y);
-  if (pointIndex !== hoveredPointIndex) {
-    clearTimeout(hoverTimeout);
-    hidePointInfoPopup();
-    
-    if (pointIndex >= 0 && !isContextMenuOpen()) {
-      hoverTimeout = setTimeout(() => {
-        showPointInfoPopup(e, pointIndex);
-      }, 500);
-    }
-    hoveredPointIndex = pointIndex;
-  }
-}
-
 /*** Gerenciamento de pontos: */
 function updatePointPosition() {
   if (selectedPointIndex >= 0) {  //usado por eventos de alteração no menu de contexto
@@ -622,6 +659,7 @@ function draw() {
     
     // Apply transformation
     ctx.save();
+    ctx.translate(panOffset.x, panOffset.y); // Add this line
     ctx.translate(zoomOrigin.x, zoomOrigin.y);
     ctx.scale(zoomLevel, zoomLevel);
     ctx.translate(-zoomOrigin.x, -zoomOrigin.y);
@@ -837,15 +875,15 @@ function drawNURBScurve() { /** reescrever */
     ctx.stroke();
 }
 /*** Fim da mágica. */
-
-function drawTangentVector(vector, color) { //usado para desenhar ambos os vetores.   //OK
+function drawTangentVector(vector, color) {
   const start = NURBScontrolPoints[0];
-  const scale=0.1
+  const scale = 0.1;
   const end = {
-    x: start.x + vector.x*scale,
-    y: start.y + vector.y*scale
+    x: start.x + vector.x * scale,
+    y: start.y + vector.y * scale
   };
   
+  // Draw the line
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
   ctx.lineTo(end.x, end.y);
@@ -853,36 +891,44 @@ function drawTangentVector(vector, color) { //usado para desenhar ambos os vetor
   ctx.lineWidth = 2;
   ctx.stroke();
   
-  // Draw arrowhead
+  // Draw arrowhead with base at the end of the line
   const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  const arrowLength = 10; // Length of the arrowhead
+  const arrowWidth = 6;   // Width at the base of the arrowhead
+  
+  // Calculate the tip point (extending beyond 'end')
+  const tip = {
+    x: end.x + arrowLength * Math.cos(angle),
+    y: end.y + arrowLength * Math.sin(angle)
+  };
+  
   ctx.beginPath();
-  ctx.moveTo(end.x, end.y);
+  ctx.moveTo(tip.x, tip.y); // Start at the tip
+  // Draw to one side of the base
   ctx.lineTo(
-    end.x - 10 * Math.cos(angle - Math.PI/6),
-    end.y - 10 * Math.sin(angle - Math.PI/6)
+    end.x - arrowWidth * Math.cos(angle - Math.PI/2),
+    end.y - arrowWidth * Math.sin(angle - Math.PI/2)
   );
+  // Draw to the other side of the base
   ctx.lineTo(
-    end.x - 10 * Math.cos(angle + Math.PI/6),
-    end.y - 10 * Math.sin(angle + Math.PI/6)
+    end.x - arrowWidth * Math.cos(angle + Math.PI/2),
+    end.y - arrowWidth * Math.sin(angle + Math.PI/2)
   );
   ctx.closePath();
   ctx.fillStyle = color;
   ctx.fill();
 }
 
-
 /****** Helpers */
 function getCanvasCoords(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
+  const rawX = (clientX - rect.left);
+  const rawY = (clientY - rect.top);
   
-  // Calculate raw canvas coordinates
-  const rawX = (clientX - rect.left) ;
-  const rawY = (clientY - rect.top) ;
-  
-  // Adjust for zoom transformation
+  // Calculate effective coordinates considering both zoom and pan
   return {
-    x: zoomOrigin.x + (rawX - zoomOrigin.x) / zoomLevel,
-    y: zoomOrigin.y + (rawY - zoomOrigin.y) / zoomLevel
+    x: (rawX - panOffset.x) / zoomLevel + zoomOrigin.x * (1 - 1/zoomLevel),
+    y: (rawY - panOffset.y) / zoomLevel + zoomOrigin.y * (1 - 1/zoomLevel)
   };
 }
 
