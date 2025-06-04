@@ -1,6 +1,6 @@
 Clique com botão direito para adicionar pontos à segunda curva (se aplicável)
 
-    Corrigir menu de contexto fora do viewport quando próximo do limite inferior ou direito
+OK  Corrigir menu de contexto fora do viewport quando próximo do limite inferior ou direito
     Reimplementar manualmente Cox-De Boor;
     Reimplementar manualmente De Casteljau
 OK  Ajustar x, y do ponto também com clique do botão direito.
@@ -9,16 +9,17 @@ OK  Implementar checkbox para exibir nós;
 x   Exibir parâmetro t (aka u);
     Popup de sobre/licença;
 OK? Grid layout de interface de configuração;
-    Tooltips para checkboxes, botões, etc - usar mesmo estilo usado nos popups sobre pontos.
 OK  Corrigir bug HiDPI (borrado em alguns níveis de zoom)
     Implementar eventos de touch (celular/C630)
     Implementar eventos de caneta (X380Y)
-    Implementar Ctrl+Z? (pode não ser tão trivial assim para drag?)
 
     Implementar zoom vetorial?
 OK  Impedir de remover ponto comum às curvas.
 OK  Mover ponto comum de ambas as curvas simultaneamente.
     Implementar C0 opcional?
+    
 
     Implementar tema escuro / automático?
-    Documentar ou remover @click.stop
+
+    Implementar Ctrl+Z? (pode não ser tão trivial assim para drag?)
+    Tooltips para checkboxes, botões, etc - usar mesmo estilo usado nos popups sobre pontos.

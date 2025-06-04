@@ -17,12 +17,13 @@ const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão dir
 const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima para criação de novo ponto.
 
 let selectedCurve = 'NURBS'; // or 'Bézier'
-let NURBSknotVector = [];
+let NURBSknotVector = [];   //preenchido por 
 
 //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva se aplicável.
-//Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS
+//Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS.
 const NURBS_DEGREE = 3; 
 const BEZIER_DEGREE = 7; 
+
 let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 590, y: 600, z: 0, weight: 1 },
     { x: 660, y: 833, z: 0, weight: 1 },
@@ -100,8 +101,8 @@ function initCanvas() { //ok
 
   document.getElementById("forceC1").addEventListener("change", enforceC1);   
 
-  document.getElementById('setX').addEventListener('input', updatePosition);
-  document.getElementById('setY').addEventListener('input', updatePosition);
+  document.getElementById('setX').addEventListener('input', updatePointPosition);
+  document.getElementById('setY').addEventListener('input', updatePointPosition);
   //setZ não necessário pois sempre é zero.
 
   document.getElementById('weightInput').addEventListener('input', updatePointWeight);
@@ -163,11 +164,15 @@ function openContextMenu(e) {
     } else {  //sem C1, apenas ponto 0 é obrigatório.
       deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || NURBScontrolPoints.length <= (NURBS_DEGREE+1)));
     }
-    
-    contextMenu.style.left = `${e.clientX}px`;
-    contextMenu.style.top = `${e.clientY}px`;
+
+    //Evita que o menu de contexto apareça fora do viewport se ponto está próximo das bordas direita/inferior:
+    contextMenu.style.left = (e.clientX + 160 > window.innerWidth)? `${e.clientX - 155}px`:`${e.clientX + 5}px`;
+    contextMenu.style.top = (e.clientY + 260 > window.innerHeight)? 
+      ((selectedCurve == "NURBS")? `${e.clientY - 260}px`:`${e.clientY - 220}px`):  //NURBS pode possuir uma opção a mais.
+      `${e.clientY + 2}px`;
+
     contextMenu.classList.add('visible');//abertura animada
-  } else {  //clique direito fora da área de qualquer ponto fecha menu de contexto existente.
+  } else {  //clique direito fora da área de qualquer ponto apenas fecha menu de contexto existente.
     closeContextMenu();
   }
 }
@@ -341,9 +346,9 @@ function showDebugPopup() {
 
 
 
-/** Atualizar, aparentemente isso só garante G1: 
- * Reajusta pontos para garantir C1 ao ativar a opção
+/** Reajusta pontos para garantir C1 ao ativar a opção
  * Chamada por evento de checkbox:
+ * Corrigido para considerar diferença de grau entre curvas:
 */
 function enforceC1() {
   const forceC1 = document.getElementById("forceC1").checked;
@@ -442,7 +447,7 @@ function handleMouseMove(e) {
 }
 
 /*** Gerenciamento de pontos: */
-function updatePosition() {
+function updatePointPosition() {
   if (selectedPointIndex >= 0) {  //usado por eventos de alteração no menu de contexto
     const x = parseFloat(document.getElementById('setX').value);
     const y = parseFloat(document.getElementById('setY').value);
@@ -464,11 +469,11 @@ function updatePointWeight() {
   }
 }
 
-function deleteSelectedPoint() {  //usada por clique em remover ponto. Remove o ponto da NURBS atualmente selecionado cf. selectedPointIndex
-  if (selectedPointIndex >= 0 && NURBScontrolPoints.length > 4) { // não deve acontecer, de qualquer forma pois o botão é oculto com <4 pontos, mas não custa.
+function deleteSelectedPoint() {  //usada por clique em remover ponto (apenas NURBS). Remove o ponto atualmente selecionado cf. selectedPointIndex 
+  if (selectedPointIndex >= 0 && NURBScontrolPoints.length > 4) { // não dev acontecer, de qualquer forma pois o botão é oculto com <4 pontos, mas não custa.
     NURBScontrolPoints.splice(selectedPointIndex, 1);
     selectedPointIndex = -1;
-    setNURBSknotVector(); 
+    setNURBSknotVector(); //redefine vetor de nós para nova quantidade de pontos;
     draw();
     closeContextMenu(); //após draw() para não atrasar renderização durante animação do menu.
   }
@@ -526,7 +531,7 @@ function validateNURBSknotVector() {  //OK
   return true;
 }
 
-function applyNURBSknotVector() {
+function applyNURBSknotVector() { // usada por evento de botão de aplicar:
     const inputText = document.getElementById('NURBSknotVector').value.trim();
     NURBSknotVector = inputText.split(',').map(parseFloat);
 
@@ -537,7 +542,7 @@ function applyNURBSknotVector() {
 }
 
 /**Define vetor de nós como valores padrão para o grau e número de pontos.
- * usado por setNURBSknotVector() e evento de botão de reset. 
+ * usado por initCanvas(), adição/remoção de ponto e evento de botão de reset.
  * Difere do padrão 0~1 porque a representação do vetor de nós fica mais legível
  * (apenas valores inteiros) e não ocorre diferença na curva pois NURBS 
  * considera apenas a distância relativa entre nós: */
@@ -878,7 +883,5 @@ function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {  //
   return -1;
 }
 
-function isContextMenuOpen() {  return contextMenu.classList.contains('visible');   //OK
-}
-
+function isContextMenuOpen() {  return contextMenu.classList.contains('visible'); }  //OK
 window.onload = initCanvas;
