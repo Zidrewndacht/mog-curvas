@@ -10,7 +10,7 @@ let selectedPointIndex = -1; // Ponto selecionado para configuração durante cl
 let isDragging = false;
 let dragPointIndex = -1;
 let dragStartPos = { x: 0, y: 0 }; 
-let hoverTimeout;
+let hoverTimeout, debugTimeout;
 let hoveredPointIndex = -1; //ponto sob o mouse durante tooltip
 
 const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão direito/arrastar
@@ -19,11 +19,13 @@ const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima pa
 let selectedCurve = 'NURBS'; // or 'Bézier'
 let NURBSknotVector = [];
 
-const DEGREE = 4; //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva.
-
+//Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva se aplicável.
+//Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS
+const NURBS_DEGREE = 3; 
+const BEZIER_DEGREE = 7; 
 let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 590, y: 600, z: 0, weight: 1 },
-    { x: 620, y: 700, z: 0, weight: 1 },
+    { x: 660, y: 833, z: 0, weight: 1 },
     { x: 700, y: 720, z: 0, weight: 1 },
     { x: 800, y: 200, z: 0, weight: 1 },
     { x: 790, y: 750, z: 0, weight: 1 },
@@ -42,6 +44,9 @@ let bezierControlPoints = [ //Curva inicial (pré-definida)
     { x: 250, y: 575, z: 0 },
     { x: 530, y: 650, z: 0 },
 ];
+
+let bezierTangent = {x:45, y:45, mag:0, angle:0}
+let NURBStangent = {x:-45, y:-45, mag:0, angle:0}
 
 
 /** Usada em init e redumensionamento.
@@ -67,14 +72,13 @@ function setupCanvas() {  //OK
   draw();
 }
 
-
 /** Executada ao iniciar a aplicação. 
  * Configura canvas, vetor de nós e eventos de interação: */
 function initCanvas() { //ok
   canvas = document.getElementById('curves-canvas');
   setupCanvas();  //usada em init e redumensionamento.
 
-  updateNURBSknotVector(); //calcula valor inicial para vetor de nós.
+  setNURBSknotVector(); //calcula valor inicial para vetor de nós.
 
   // Event listeners
   minimizeToggle.addEventListener('click', toggleUIVisibility);
@@ -94,8 +98,7 @@ function initCanvas() { //ok
   document.getElementById('showWeights').       addEventListener('change',  draw);
   document.getElementById('sampleCount').       addEventListener('input',   draw);
 
-  document.getElementById("forceC1").addEventListener("change", enforceC1);   //atualizar, aparentemente apenas garante G1 atualmente
-
+  document.getElementById("forceC1").addEventListener("change", enforceC1);   
 
   document.getElementById('setX').addEventListener('input', updatePosition);
   document.getElementById('setY').addEventListener('input', updatePosition);
@@ -114,7 +117,7 @@ function initCanvas() { //ok
 
 /****** Event Handlers */
 
-function toggleUIVisibility() {
+function toggleUIVisibility() { //ok
     isUIMinimized = !isUIMinimized;
     
     if (isUIMinimized) {  //animação:
@@ -155,10 +158,10 @@ function openContextMenu(e) {
     const deleteOption = document.getElementById('deletePoint');
     const forceC1 = document.getElementById("forceC1").checked
     if (forceC1){ 
-      deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || selectedPointIndex === 1 || NURBScontrolPoints.length <= 4));
+      deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || selectedPointIndex === 1 || NURBScontrolPoints.length <= (NURBS_DEGREE+1)));
       if (selectedPointIndex == 0 || selectedPointIndex == 1) weightInput.disabled = true;
     } else {  //sem C1, apenas ponto 0 é obrigatório.
-      deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || NURBScontrolPoints.length <= 4));
+      deleteOption.classList.toggle('hidden-option', (selectedCurve !== 'NURBS' || selectedPointIndex === 0 || NURBScontrolPoints.length <= (NURBS_DEGREE+1)));
     }
     
     contextMenu.style.left = `${e.clientX}px`;
@@ -176,7 +179,9 @@ function closeContextMenu() {
   hidePointInfoPopup(); 
 }
 
-function handleDocumentClick(e) {   //fecha menu de contexto:
+/** fecha menu de contexto com clique em qualquer lugar:
+ * Necessário para identificar cliques dentro do próprio menu de contexto!*/
+function handleDocumentClick(e) { 
   if (isContextMenuOpen() && !contextMenu.contains(e.target)) {
     closeContextMenu();
   }
@@ -186,10 +191,10 @@ function handleCanvasClick(e) {
   if (!isContextMenuOpen() && e.button === 0 && !isDragging) {
     const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
     
-    //Adiciona novo ponto à NURBS:
+    //Se não existe ponto aqui, adiciona novo ponto à NURBS:
     if (findControlPointAtPosition(x, y, ADD_POINT_THRESHOLD) === -1) {
       NURBScontrolPoints.push({ x, y, z: 0, weight: 1 });
-      updateNURBSknotVector();
+      setNURBSknotVector();
       draw();
     }
   }
@@ -205,6 +210,10 @@ function handleMouseDown(e) {
   if (dragPointIndex >= 0) {
     isDragging = true;
     canvas.style.cursor = 'grabbing';
+    if (dragPointIndex <= 3) {
+      showDebugPopup();
+      draw()
+    }
   }
 }
 
@@ -249,6 +258,89 @@ function hidePointInfoPopup() { //fechamento animado:
     hoveredPointIndex = -1;
   }, 300);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function showDebugPopup() {
+  clearTimeout(debugTimeout);
+  const debugPopup = document.getElementById('debugPopup');
+  
+  const bezP0 = bezierControlPoints[0];
+  const bezP1 = bezierControlPoints[1];
+  const bezierDegree = bezierControlPoints.length - 1;
+  bezierTangent.x = bezierDegree * (bezP1.x - bezP0.x);    /** referenciar fórmula */
+  bezierTangent.y = bezierDegree * (bezP1.y - bezP0.y);
+  
+  /** Mágica: */
+  const nurbsP0 = NURBScontrolPoints[0];
+  const nurbsP1 = NURBScontrolPoints[1];
+  const knotDiff = NURBSknotVector[NURBS_DEGREE + 1] - NURBSknotVector[1];
+  const weightRatio = nurbsP1.weight / nurbsP0.weight;
+  const nurbsFactor = NURBS_DEGREE / knotDiff;
+  
+  NURBStangent.x = nurbsFactor * weightRatio * (nurbsP1.x - nurbsP0.x);
+  NURBStangent.y = nurbsFactor * weightRatio * (nurbsP1.y - nurbsP0.y);
+  /** Fim da mágica */
+
+  bezierTangent.mag = Math.sqrt(bezierTangent.x ** 2 + bezierTangent.y ** 2);
+  bezierTangent.angle = Math.atan2(bezierTangent.y, bezierTangent.x) * (180 / Math.PI);
+  
+  NURBStangent.mag = Math.sqrt(NURBStangent.x ** 2 + NURBStangent.y ** 2);
+  NURBStangent.angle = Math.atan2(NURBStangent.y, NURBStangent.x) * (180 / Math.PI);
+  
+  document.getElementById('bezierMagnitude').textContent = bezierTangent.mag.toFixed(3);
+  document.getElementById('bezierAngle').textContent = bezierTangent.angle.toFixed(2);
+  document.getElementById('NURBSmagnitude').textContent = NURBStangent.mag.toFixed(3);
+  document.getElementById('NURBSangle').textContent = NURBStangent.angle.toFixed(2);
+  
+  let continuityLevel = "C0"; // Assume continuidade C0 por padrão (obrigatória)
+  
+  if (bezierTangent.mag > 1e-4 && NURBStangent.mag > 1e-4) {
+    const angleDiff = Math.abs(Math.abs(bezierTangent.angle - NURBStangent.angle) - 180);
+    
+    if (angleDiff < 1) { //verifica se vetores são opostos, tolerância de 1°
+      if (Math.abs(bezierTangent.mag - NURBStangent.mag) < 1) {
+        continuityLevel = "C1"; //se magnitude e ângulo são iguais, C1.
+      } else {
+        continuityLevel = "G1"; //se apenas ângulo é igual, G1.
+      }
+    }
+  }
+
+  document.getElementById('continuityLevel').textContent = continuityLevel;
+  
+  debugPopup.classList.add('visible');
+  debugTimeout = setTimeout(() => {
+    debugPopup.classList.remove('visible');
+    draw();
+  }, 5000);
+}
+
+
+
+
+
+
 /** Atualizar, aparentemente isso só garante G1: 
  * Reajusta pontos para garantir C1 ao ativar a opção
  * Chamada por evento de checkbox:
@@ -258,13 +350,13 @@ function enforceC1() {
   if (forceC1){
     const point0 = bezierControlPoints[0];
     const referenceVec = {
-      x: bezierControlPoints[1].x - point0.x,
-      y: bezierControlPoints[1].y - point0.y
+      x: (bezierControlPoints[1].x - point0.x) / NURBS_DEGREE * BEZIER_DEGREE,
+      y: (bezierControlPoints[1].y - point0.y) / NURBS_DEGREE * BEZIER_DEGREE,
     };
     
     NURBScontrolPoints[1].x = point0.x - referenceVec.x;
     NURBScontrolPoints[1].y = point0.y - referenceVec.y;
-    NURBScontrolPoints[1].weight = 1 //force weight (also disabled by context menu when forceC1 enabled)
+    NURBScontrolPoints[1].weight = 1 //fixa peso em 1 para ponto
   }
   draw();
 }
@@ -277,8 +369,9 @@ function handlePointMovement(pointIndex, newX, newY) {
   // const forceC0 = document.getElementById("forceC0").checked   //não implementado
   const forceC1 = document.getElementById("forceC1").checked
   // const forceC2 = document.getElementById("forceC2").checked   //a implementar
-
+  if (pointIndex <= 3 ) showDebugPopup();  //exibe popup para pontos próximos de 0
   if (pointIndex === 0) { //casos especiais para ponto 0
+    // showDebugPopup();
     const prevX = bezierControlPoints[0].x;
     const prevY = bezierControlPoints[0].y;
     //Sempre garante C0: pontos 0 das duas curvas são unidos:
@@ -286,7 +379,7 @@ function handlePointMovement(pointIndex, newX, newY) {
     bezierControlPoints[0].y = newY;
     NURBScontrolPoints[0].x = newX;
     NURBScontrolPoints[0].y = newY;
-    if (forceC1){ //Atualizar, aparentemente isso só garante G1:
+    if (forceC1){
       const deltaX = newX - prevX;
       const deltaY = newY - prevY;
     
@@ -296,20 +389,21 @@ function handlePointMovement(pointIndex, newX, newY) {
       NURBScontrolPoints[1].x += deltaX;
       NURBScontrolPoints[1].y += deltaY;
     }
-  } else if (pointIndex === 1 && forceC1) { //Atualizar, aparentemente isso só garante G1:
+  } else if (pointIndex === 1 && forceC1) { 
+    // showDebugPopup();
     const point0 = bezierControlPoints[0];
     const newVec = { x: newX - point0.x, y: newY - point0.y };
     
     if (selectedCurve === 'NURBS') {
       NURBScontrolPoints[1].x = newX;
       NURBScontrolPoints[1].y = newY;
-      bezierControlPoints[1].x = point0.x - newVec.x;
-      bezierControlPoints[1].y = point0.y - newVec.y;
+      bezierControlPoints[1].x = point0.x - (newVec.x / BEZIER_DEGREE * NURBS_DEGREE);
+      bezierControlPoints[1].y = point0.y - (newVec.y / BEZIER_DEGREE * NURBS_DEGREE);
     } else {
       bezierControlPoints[1].x = newX;
       bezierControlPoints[1].y = newY;
-      NURBScontrolPoints[1].x = point0.x - newVec.x;
-      NURBScontrolPoints[1].y = point0.y - newVec.y;
+      NURBScontrolPoints[1].x = point0.x - (newVec.x /  NURBS_DEGREE * BEZIER_DEGREE);
+      NURBScontrolPoints[1].y = point0.y - (newVec.y /  NURBS_DEGREE * BEZIER_DEGREE);
     }
   } else {
     if (selectedCurve === 'NURBS') {
@@ -349,7 +443,7 @@ function handleMouseMove(e) {
 
 /*** Gerenciamento de pontos: */
 function updatePosition() {
-  if (selectedPointIndex >= 0) {
+  if (selectedPointIndex >= 0) {  //usado por eventos de alteração no menu de contexto
     const x = parseFloat(document.getElementById('setX').value);
     const y = parseFloat(document.getElementById('setY').value);
     handlePointMovement(selectedPointIndex, x, y, true);
@@ -363,6 +457,9 @@ function updatePointWeight() {
     if (!isNaN(weight)) { //garante valor válido proveniente do campo antes de atualizar variável:
       NURBScontrolPoints[selectedPointIndex].weight = weight;
       draw();
+      if (selectedPointIndex === 0 || selectedPointIndex === 1) {
+        showDebugPopup();
+      }
     }
   }
 }
@@ -371,16 +468,15 @@ function deleteSelectedPoint() {  //usada por clique em remover ponto. Remove o 
   if (selectedPointIndex >= 0 && NURBScontrolPoints.length > 4) { // não deve acontecer, de qualquer forma pois o botão é oculto com <4 pontos, mas não custa.
     NURBScontrolPoints.splice(selectedPointIndex, 1);
     selectedPointIndex = -1;
-    updateNURBSknotVector(); 
+    setNURBSknotVector(); 
     draw();
     closeContextMenu(); //após draw() para não atrasar renderização durante animação do menu.
   }
 }
 
 
-
 /*** Gerenciamento de vetor de nós: */
-function validateNURBSknotVector() {
+function validateNURBSknotVector() {  //OK
   const knotInput = document.getElementById('NURBSknotVector');
   const applyButton = document.getElementById('applyKnots');
   const resetButton = document.getElementById('resetKnots');
@@ -398,9 +494,9 @@ function validateNURBSknotVector() {
   const newKnots = inputText.split(',').map(str => parseFloat(str.trim()));
   
   // Verifica comprimento (grau + pontos de controle + 1)
-  const minLength = DEGREE + NURBScontrolPoints.length + 1;
+  const minLength = NURBS_DEGREE + NURBScontrolPoints.length + 1;
   if (newKnots.length < minLength) {
-    knotInput.setCustomValidity(`Vetor de nós precisa ter pelo menos ${minLength} valores para grau ${DEGREE} com ${NURBScontrolPoints.length} pontos de controle`);
+    knotInput.setCustomValidity(`Vetor de nós precisa ter pelo menos ${minLength} valores para grau ${NURBS_DEGREE} com ${NURBScontrolPoints.length} pontos de controle`);
     knotInput.reportValidity();
 
     applyButton.style.display = 'none';
@@ -439,71 +535,61 @@ function applyNURBSknotVector() {
 
     draw(); 
 }
-/** usado por updateNURBSknotVector e setNURBSknotVector */
-function updateNURBSknotVectorDisplay() {  
-  // Limita exibição a 3 casas decimais:
-  const formattedKnots = NURBSknotVector.map(k => {
-    const num = typeof k === 'string' ? parseFloat(k) : k;
-    return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(3)).toString();
-  });
-  document.getElementById('NURBSknotVector').value = formattedKnots.join(', ');
-}
-
-function updateNURBSknotVector() {
-  const requiredLength = DEGREE + NURBScontrolPoints.length + 1;
-  if (NURBSknotVector.length !== requiredLength) {
-    setNURBSknotVector(); // Automatically adjust knot vector to match new point count
-  } else {
-    updateNURBSknotVectorDisplay();
-  }
-}
 
 /**Define vetor de nós como valores padrão para o grau e número de pontos.
- * usado por updateNURBSknotVector() e evento de botão de reset. 
+ * usado por setNURBSknotVector() e evento de botão de reset. 
  * Difere do padrão 0~1 porque a representação do vetor de nós fica mais legível
  * (apenas valores inteiros) e não ocorre diferença na curva pois NURBS 
  * considera apenas a distância relativa entre nós: */
-function setNURBSknotVector() {
-  const controlPoints = NURBScontrolPoints.length;
-  const knots = DEGREE + 1;
-  NURBSknotVector = []; //limpa vetor existente
-  
-  // Inicia com 'grau+1' zeros (0) para clamping:
-  for (let i = 0; i < knots; i++) {
-    NURBSknotVector.push(0);
-  }
-  // Adiciona nós excedentes (para controlPoints > knots)
-  const internalKnots = controlPoints - knots;
-  if (controlPoints > knots) {
-    for (let i = 1; i <= internalKnots; i++) {
-      const knotValue = i 
-      NURBSknotVector.push(parseFloat(knotValue));
+function setNURBSknotVector() { //OK  //referenciar
+  const requiredLength = NURBS_DEGREE + NURBScontrolPoints.length + 1;
+    if (NURBSknotVector.length !== requiredLength) {
+      
+    const controlPoints = NURBScontrolPoints.length;
+    const knots = NURBS_DEGREE + 1;
+    NURBSknotVector = []; //limpa vetor existente
+    
+    // Inicia com 'grau+1' zeros (0) para clamping:
+    for (let i = 0; i < knots; i++) {
+      NURBSknotVector.push(0);
     }
-  }
-  
-  // Termina com 'grau+1' uns (1)
-  for (let i = 0; i < knots; i++) {
-    NURBSknotVector.push(internalKnots + 1);
-  }
-  
-  // Versão anterior (normalizado 0~1)
-  // if (controlPoints > knots) {
-  //   const internalKnots = controlPoints - knots;
-  //   for (let i = 1; i <= internalKnots; i++) {
-  //     const knotValue = i / (internalKnots + 1);  //distribui ~uniformemente entre 0 e 1
-  //     NURBSknotVector.push(parseFloat(knotValue.toFixed(3))); //3 dígitos para não poluir
-  //   }
-  // }
-  
-  // // Termina com grau+1 uns (1)
-  // for (let i = 0; i < knots; i++) {
-  //   NURBSknotVector.push(1);
-  // }
+    // Adiciona nós excedentes (para controlPoints > knots)
+    const internalKnots = controlPoints - knots;
+    if (controlPoints > knots) {
+      for (let i = 1; i <= internalKnots; i++) {
+        const knotValue = i 
+        NURBSknotVector.push(parseFloat(knotValue));
+      }
+    }
+    // Termina com 'grau+1' uns (1)
+    for (let i = 0; i < knots; i++) {
+      NURBSknotVector.push(internalKnots + 1);
+    }
+    
+    /** Versão anterior "padrão" (normalizado 0~1): */
+    // if (controlPoints > knots) {
+    //   const internalKnots = controlPoints - knots;
+    //   for (let i = 1; i <= internalKnots; i++) {
+    //     const knotValue = i / (internalKnots + 1);  //distribui ~uniformemente entre 0 e 1
+    //     NURBSknotVector.push(parseFloat(knotValue.toFixed(3))); //3 dígitos para não poluir
+    //   }
+    // }
+    
+    // // Termina com grau+1 uns (1)
+    // for (let i = 0; i < knots; i++) {
+    //   NURBSknotVector.push(1);
+    // }
 
 
-  updateNURBSknotVectorDisplay();
-  document.getElementById('applyKnots').style.display = 'none';
-  draw();
+    const formattedKnots = NURBSknotVector.map(k => {
+      const num = typeof k === 'string' ? parseFloat(k) : k;
+      return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(2)).toString();
+    });
+    document.getElementById('NURBSknotVector').value = formattedKnots.join(', ');
+
+    document.getElementById('applyKnots').style.display = 'none';
+    draw();
+  } 
 }
 
 function draw() {
@@ -520,7 +606,7 @@ function draw() {
     const showPointIndex =      document.getElementById('showPointIndex').checked;
     const showKnots =           document.getElementById('showKnots').checked;
 
-    if (showControlPolygon) { //"Exibir polígono de controle"
+    if (showControlPolygon) { //OK: "Exibir polígono de controle"
       ctx.beginPath();
       ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
       for (let i = 1; i < NURBScontrolPoints.length; i++) {
@@ -544,7 +630,7 @@ function draw() {
       ctx.stroke();
     }
 
-    if (showPointIndex){ //"Exibir índices"
+    if (showPointIndex){ //OK: "Exibir índices"
       NURBScontrolPoints.forEach((point, index) => {
         ctx.fillStyle = '#208030e0';
         ctx.fillText(index.toString(), point.x - 5, point.y - 15);
@@ -559,9 +645,14 @@ function draw() {
     drawBezierCurve();
     
     //Nós e pontos de controle precisam aparecer 'por cima' das curvas, todo o resto 'por baixo':
+    
+    if (document.getElementById('debugPopup').classList.contains('visible')){ //OK  //exibe vetor tangente enquanto popu está ativo
+      drawTangentVector(bezierTangent, '#9006');
+      drawTangentVector(NURBStangent, '#0906');
+    }
 
-    if (showWeights) { //"Exibir pesos"
-      NURBScontrolPoints.forEach((point, index) => {
+    if (showWeights) { //OK: "Exibir pesos"
+      NURBScontrolPoints.forEach((point) => {
           ctx.font = '10px system-ui';
           ctx.fillStyle = '#010';
           ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
@@ -569,9 +660,9 @@ function draw() {
     }
     //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
     if (showKnots) {  //"Exibir nós"
-      // revisar
-      const u_min = NURBSknotVector[DEGREE];
-      const u_max = NURBSknotVector[NURBSknotVector.length - DEGREE - 1];
+      /** refazer: */
+      const u_min = NURBSknotVector[NURBS_DEGREE];
+      const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
       
       const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
       
@@ -580,7 +671,7 @@ function draw() {
       ctx.textBaseline = 'top';
       
       uniqueKnots.forEach(u => {
-        const point = evaluateNURBS(u, DEGREE, NURBScontrolPoints, NURBSknotVector);
+        const point = evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
         
         // Draw a smaller circle at the knot position
         ctx.beginPath();
@@ -590,11 +681,11 @@ function draw() {
         
         // Display the knot value below the marker
         ctx.fillStyle = '#208030';
-        ctx.fillText(u.toFixed(2), point.x, point.y + 15);
+        ctx.fillText(u.toFixed(1), point.x, point.y + 15);
       });
     }
 
-    if (showControlPoints){ //"Exibir pontos de controle"
+    if (showControlPoints){ //OK: "Exibir pontos de controle"
       NURBScontrolPoints.forEach((point) => {
         ctx.beginPath();
         ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
@@ -617,7 +708,6 @@ function draw() {
   })
 }
 
-
 /*** Mágica: (Implementação DS V3 -- reescrever cf. livro. */
 function basisFunction(i, p, u, knots) { //converter para De Boor
     if (p === 0) {
@@ -635,12 +725,12 @@ function basisFunction(i, p, u, knots) { //converter para De Boor
     }
 }
 
-function evaluateNURBS(u, DEGREE, NURBScontrolPoints, knots) {
+function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {
     let x = 0, y = 0, z = 0;
     let weightSum = 0;
 
     for (let i = 0; i < NURBScontrolPoints.length; i++) {  //para cada ponto de controle:
-        const basis = basisFunction(i, DEGREE, u, knots);
+        const basis = basisFunction(i, NURBS_DEGREE, u, knots);
         const weightedBasis = basis * NURBScontrolPoints[i].weight;
         x += NURBScontrolPoints[i].x * weightedBasis;
         y += NURBScontrolPoints[i].y * weightedBasis;
@@ -669,11 +759,9 @@ function evaluateBezier(t, points) { // De Casteljau's algorithm
     }
     return workingPoints[0];
 }
-/*** Fim da mágica. */
 
-
-function drawBezierCurve() {
-    const sampleCount = parseInt(document.getElementById('sampleCount').value) || 100;
+function drawBezierCurve() {  /** reescrever */
+    const sampleCount = parseInt(document.getElementById('sampleCount').value) * bezierControlPoints.length;
     ctx.beginPath();
     
     // First point
@@ -692,25 +780,22 @@ function drawBezierCurve() {
     ctx.stroke();
 }
 
-
-function drawNURBScurve() {
-    const sampleCount = parseInt(document.getElementById('sampleCount').value) || 100;
-    ctx.beginPath();
-
+function drawNURBScurve() { /** reescrever */
     // Get the valid parameter range [u_min, u_max]
-    const u_min = NURBSknotVector[DEGREE];
-    const u_max = NURBSknotVector[NURBSknotVector.length - DEGREE - 1];
+    const u_min = NURBSknotVector[NURBS_DEGREE];
+    const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
+    const sampleCount = ( parseInt(document.getElementById('sampleCount').value) * NURBScontrolPoints.length);
     const delta = (u_max - u_min) / sampleCount;
 
     // Evaluate first point
-    const startPoint = evaluateNURBS(u_min, DEGREE, NURBScontrolPoints, NURBSknotVector);
+    const startPoint = evaluateNURBS(u_min, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
+    ctx.beginPath();
     ctx.moveTo(startPoint.x, startPoint.y);
 
     // Sample the curve within the valid range
     for (let i = 1; i <= sampleCount; i++) {
-        // const u = u_min + i * delta * (1 - 1e-30);
         const u = Math.min(u_min + i * delta, u_max - Number.EPSILON);
-        const point = evaluateNURBS(u, DEGREE, NURBScontrolPoints, NURBSknotVector);
+        const point = evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
         ctx.lineTo(point.x, point.y);
     }
 
@@ -718,15 +803,43 @@ function drawNURBScurve() {
     ctx.lineWidth = 2;
     ctx.stroke();
 }
+/*** Fim da mágica. */
 
-
-
-
-
+function drawTangentVector(vector, color) { //usado para desenhar ambos os vetores.   //OK
+  const start = NURBScontrolPoints[0];
+  const scale=0.1
+  const end = {
+    x: start.x + vector.x*scale,
+    y: start.y + vector.y*scale
+  };
+  
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // Draw arrowhead
+  const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  ctx.beginPath();
+  ctx.moveTo(end.x, end.y);
+  ctx.lineTo(
+    end.x - 10 * Math.cos(angle - Math.PI/6),
+    end.y - 10 * Math.sin(angle - Math.PI/6)
+  );
+  ctx.lineTo(
+    end.x - 10 * Math.cos(angle + Math.PI/6),
+    end.y - 10 * Math.sin(angle + Math.PI/6)
+  );
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
 
 
 /****** Helpers */
-function getCanvasCoords(canvas, clientX, clientY) {
+function getCanvasCoords(canvas, clientX, clientY) {  //Identifica coordenadas considerando DPR/zoom: //OK
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / (rect.width * (window.devicePixelRatio || 1));
   const scaleY = canvas.height / (rect.height * (window.devicePixelRatio || 1));
@@ -736,7 +849,7 @@ function getCanvasCoords(canvas, clientX, clientY) {
   };
 }
 
-function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {
+function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {  //OK
   // Pré-calcula limites quadrados para evitar Math.sqrt():
   const thresholdSquared = threshold * threshold;
   
@@ -765,11 +878,7 @@ function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {
   return -1;
 }
 
-
-
-function isContextMenuOpen() {  
-  //if (selectedPointIndex >= 0) pode ser suficiente em vez disso, mas, na prática, tanto faz.
-  return contextMenu.classList.contains('visible'); 
+function isContextMenuOpen() {  return contextMenu.classList.contains('visible');   //OK
 }
 
 window.onload = initCanvas;

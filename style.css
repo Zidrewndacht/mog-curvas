@@ -167,17 +167,9 @@ footer p {
         opacity 0.2s ease-in-out,
         transform 0.2s ease-in-out,
         visibility 0s linear 0.2s;
-    visibility: hidden;
+    visibility: hidden; /* oculto por padrão, para exibir adicione classe .visible */
     
     pointer-events: auto; /* Ensure menu can receive clicks */
-}
-#contextTitle{
-    align-items: center;
-    padding: 0 14px 4px 14px;
-}
-#contextTitle:hover{
-    background: transparent;
-
 }
 
 .context-menu.visible {
@@ -189,6 +181,14 @@ footer p {
     visibility: visible;
 }
 
+#contextTitle{
+    align-items: center;
+    padding: 0 14px 4px 14px;
+}
+#contextTitle:hover{
+    background: transparent;
+
+}
 .menu-item {
     padding: 4px;
     cursor: default;
@@ -240,7 +240,7 @@ footer p {
   pointer-events: none; /* Prevent popup from blocking mouse events */
 }
 
-#pointInfoPopup .menu-item {
+#pointInfoPopup .menu-item, #debugPopup .menu-item {
     font-size: 10.5pt;
     cursor: default;
     justify-content: space-between;
@@ -249,6 +249,14 @@ footer p {
 
 #pointInfoPopup .menu-item:hover {
   background: transparent;
+}
+
+#debugPopup {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 9999;
+    min-width: 320px;
 }
 
 /* Minimize Button Styles */
