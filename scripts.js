@@ -17,7 +17,7 @@ const POINT_HIT_THRESHOLD = 15; //proximidade máxima para clique com botão dir
 const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima para criação de novo ponto.
 
 let selectedCurve = 'NURBS'; // or 'Bézier'
-let NURBSknotVector = [];   //preenchido por 
+let NURBSknotVector = [];
 
 //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva se aplicável.
 //Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS.
@@ -49,6 +49,8 @@ let bezierControlPoints = [ //Curva inicial (pré-definida)
 let bezierTangent = {x:45, y:45, mag:0, angle:0}
 let NURBStangent = {x:-45, y:-45, mag:0, angle:0}
 
+let zoomLevel = 1.0;
+let zoomOrigin = { x: 0, y: 0 };
 
 /** Usada em init e redumensionamento.
  * Configura canvas considerando resolução real
@@ -113,6 +115,7 @@ function initCanvas() { //ok
   document.getElementById('resetKnots').      addEventListener('click', setNURBSknotVector);
   document.getElementById('applyKnots').      addEventListener('click', applyNURBSknotVector);
 
+  canvas.addEventListener('wheel', handleWheel);
 }
 
 
@@ -202,6 +205,22 @@ function handleCanvasClick(e) {
       setNURBSknotVector();
       draw();
     }
+  }
+}
+
+function handleWheel(e) {
+  e.preventDefault();
+  
+  // Get coordinates BEFORE zoom transformation
+  const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
+  
+  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+  const newZoom = Math.max(1.0, zoomLevel + delta);
+
+  if (newZoom !== zoomLevel) {
+    zoomLevel = newZoom;
+    zoomOrigin = { x, y }; // Store in canvas space
+    draw();
   }
 }
 
@@ -600,116 +619,125 @@ function setNURBSknotVector() { //OK  //referenciar
 function draw() {
   requestAnimationFrame(() => { //limita taxa de atualização ao FPS do dispositivo:
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '12px system-ui';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
+    
+    // Apply transformation
+    ctx.save();
+    ctx.translate(zoomOrigin.x, zoomOrigin.y);
+    ctx.scale(zoomLevel, zoomLevel);
+    ctx.translate(-zoomOrigin.x, -zoomOrigin.y);
+      
+      ctx.font = '12px system-ui';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
 
-    // Identifica opções de visualização em uso:
-    const showControlPolygon =  document.getElementById('showControlPolygon').checked;
-    const showWeights =         document.getElementById('showWeights').checked;
-    const showControlPoints =   document.getElementById('showControlPoints').checked;
-    const showPointIndex =      document.getElementById('showPointIndex').checked;
-    const showKnots =           document.getElementById('showKnots').checked;
+      // Identifica opções de visualização em uso:
+      const showControlPolygon =  document.getElementById('showControlPolygon').checked;
+      const showWeights =         document.getElementById('showWeights').checked;
+      const showControlPoints =   document.getElementById('showControlPoints').checked;
+      const showPointIndex =      document.getElementById('showPointIndex').checked;
+      const showKnots =           document.getElementById('showKnots').checked;
 
-    if (showControlPolygon) { //OK: "Exibir polígono de controle"
-      ctx.beginPath();
-      ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
-      for (let i = 1; i < NURBScontrolPoints.length; i++) {
-        ctx.lineTo(NURBScontrolPoints[i].x, NURBScontrolPoints[i].y);
+      if (showControlPolygon) { //OK: "Exibir polígono de controle"
+        ctx.beginPath();
+        ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
+        for (let i = 1; i < NURBScontrolPoints.length; i++) {
+          ctx.lineTo(NURBScontrolPoints[i].x, NURBScontrolPoints[i].y);
+        }
+        ctx.moveTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
+        for (let i = 1; i < bezierControlPoints.length; i++) {
+          ctx.lineTo(bezierControlPoints[i].x, bezierControlPoints[i].y);
+        }
+        ctx.strokeStyle = '#b8b8b8';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        //linha mais sutil do último ponto ao primeiro:
+        ctx.beginPath();
+        ctx.moveTo(NURBScontrolPoints[NURBScontrolPoints.length-1].x, NURBScontrolPoints[NURBScontrolPoints.length-1].y);
+        ctx.lineTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
+        ctx.moveTo(bezierControlPoints[bezierControlPoints.length-1].x, bezierControlPoints[bezierControlPoints.length-1].y);
+        ctx.lineTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
+        ctx.strokeStyle = '#b8b8b848'; 
+        ctx.stroke();
       }
-      ctx.moveTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
-      for (let i = 1; i < bezierControlPoints.length; i++) {
-        ctx.lineTo(bezierControlPoints[i].x, bezierControlPoints[i].y);
-      }
-      ctx.strokeStyle = '#b8b8b8';
-      ctx.lineWidth = 1;
-      ctx.stroke();
 
-      //linha mais sutil do último ponto ao primeiro:
-      ctx.beginPath();
-      ctx.moveTo(NURBScontrolPoints[NURBScontrolPoints.length-1].x, NURBScontrolPoints[NURBScontrolPoints.length-1].y);
-      ctx.lineTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
-      ctx.moveTo(bezierControlPoints[bezierControlPoints.length-1].x, bezierControlPoints[bezierControlPoints.length-1].y);
-      ctx.lineTo(bezierControlPoints[0].x, bezierControlPoints[0].y);
-      ctx.strokeStyle = '#b8b8b848'; 
-      ctx.stroke();
-    }
-
-    if (showPointIndex){ //OK: "Exibir índices"
-      NURBScontrolPoints.forEach((point, index) => {
-        ctx.fillStyle = '#208030e0';
-        ctx.fillText(index.toString(), point.x - 5, point.y - 15);
-      });
-      bezierControlPoints.forEach((point, index) => {
-          ctx.fillStyle = '#802030e0';
+      if (showPointIndex){ //OK: "Exibir índices"
+        NURBScontrolPoints.forEach((point, index) => {
+          ctx.fillStyle = '#208030e0';
           ctx.fillText(index.toString(), point.x - 5, point.y - 15);
-      });
-    }  
+        });
+        bezierControlPoints.forEach((point, index) => {
+            ctx.fillStyle = '#802030e0';
+            ctx.fillText(index.toString(), point.x - 5, point.y - 15);
+        });
+      }  
 
-    drawNURBScurve();
-    drawBezierCurve();
-    
-    //Nós e pontos de controle precisam aparecer 'por cima' das curvas, todo o resto 'por baixo':
-    
-    if (document.getElementById('debugPopup').classList.contains('visible')){ //OK  //exibe vetor tangente enquanto popu está ativo
-      drawTangentVector(bezierTangent, '#9006');
-      drawTangentVector(NURBStangent, '#0906');
-    }
+      drawNURBScurve();
+      drawBezierCurve();
+      
+      //Nós e pontos de controle precisam aparecer 'por cima' das curvas, todo o resto 'por baixo':
+      
+      if (document.getElementById('debugPopup').classList.contains('visible')){ //OK  //exibe vetor tangente enquanto popu está ativo
+        drawTangentVector(bezierTangent, '#9006');
+        drawTangentVector(NURBStangent, '#0906');
+      }
 
-    if (showWeights) { //OK: "Exibir pesos"
-      NURBScontrolPoints.forEach((point) => {
-          ctx.font = '10px system-ui';
-          ctx.fillStyle = '#010';
-          ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
-      });
-    }
-    //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
-    if (showKnots) {  //"Exibir nós"
-      /** refazer: */
-      const u_min = NURBSknotVector[NURBS_DEGREE];
-      const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
-      
-      const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
-      
-      ctx.font = '10px system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      
-      uniqueKnots.forEach(u => {
-        const point = evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
+      if (showWeights) { //OK: "Exibir pesos"
+        NURBScontrolPoints.forEach((point) => {
+            ctx.font = '10px system-ui';
+            ctx.fillStyle = '#010';
+            ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
+        });
+      }
+      //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
+      if (showKnots) {  //"Exibir nós"
+        /** refazer: */
+        const u_min = NURBSknotVector[NURBS_DEGREE];
+        const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
         
-        // Draw a smaller circle at the knot position
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#208030';
-        ctx.fill();
+        const uniqueKnots = [...new Set(NURBSknotVector)].filter(u => u >= u_min && u <= u_max);
         
-        // Display the knot value below the marker
-        ctx.fillStyle = '#208030';
-        ctx.fillText(u.toFixed(1), point.x, point.y + 15);
-      });
-    }
+        ctx.font = '10px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        
+        uniqueKnots.forEach(u => {
+          const point = evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
+          
+          // Draw a smaller circle at the knot position
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#208030';
+          ctx.fill();
+          
+          // Display the knot value below the marker
+          ctx.fillStyle = '#208030';
+          ctx.fillText(u.toFixed(1), point.x, point.y + 15);
+        });
+      }
 
-    if (showControlPoints){ //OK: "Exibir pontos de controle"
-      NURBScontrolPoints.forEach((point) => {
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#208030';
-        ctx.fill();
-          ctx.lineWidth = 1;
-          ctx.strokeStyle = '#050'; 
-          ctx.stroke();
-      });
-      bezierControlPoints.forEach((point) => {
+      if (showControlPoints){ //OK: "Exibir pontos de controle"
+        NURBScontrolPoints.forEach((point) => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-          ctx.fillStyle = '#802030'; 
+          ctx.fillStyle = '#208030';
           ctx.fill();
-          ctx.lineWidth = 1;
-          ctx.strokeStyle = '#500'; 
-          ctx.stroke();
-      });
-    }
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#050'; 
+            ctx.stroke();
+        });
+        bezierControlPoints.forEach((point) => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#802030'; 
+            ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#500'; 
+            ctx.stroke();
+        });
+      }
+    
+    ctx.restore();
   })
 }
 
@@ -844,20 +872,25 @@ function drawTangentVector(vector, color) { //usado para desenhar ambos os vetor
 
 
 /****** Helpers */
-function getCanvasCoords(canvas, clientX, clientY) {  //Identifica coordenadas considerando DPR/zoom: //OK
+function getCanvasCoords(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / (rect.width * (window.devicePixelRatio || 1));
-  const scaleY = canvas.height / (rect.height * (window.devicePixelRatio || 1));
+  
+  // Calculate raw canvas coordinates
+  const rawX = (clientX - rect.left) ;
+  const rawY = (clientY - rect.top) ;
+  
+  // Adjust for zoom transformation
   return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY
+    x: zoomOrigin.x + (rawX - zoomOrigin.x) / zoomLevel,
+    y: zoomOrigin.y + (rawY - zoomOrigin.y) / zoomLevel
   };
 }
 
 function findControlPointAtPosition(x, y, threshold = POINT_HIT_THRESHOLD) {  //OK
   // Pré-calcula limites quadrados para evitar Math.sqrt():
-  const thresholdSquared = threshold * threshold;
-  
+  const zoomAdjustedThreshold = threshold / zoomLevel;
+  const thresholdSquared = zoomAdjustedThreshold * zoomAdjustedThreshold;
+    
   // Procura por pontos da NURBS na área sob o cursor/clique
   for (let i = NURBScontrolPoints.length - 1; i >= 0; i--) {
     const point = NURBScontrolPoints[i];
