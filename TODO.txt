@@ -1,27 +1,34 @@
-Clique com botão direito para adicionar pontos à segunda curva (se aplicável)
+Interface de usuário:
+    OK  Corrigir menu de contexto fora do viewport quando próximo do limite inferior ou direito
+    OK      Corrigir mesmo problema para popups
+    OK  Ajustar x, y do ponto também com clique do botão direito.
+    OK  Ocultar/exibir configurações gerais;
+    OK  Implementar checkbox para exibir nós;
+    OK? Grid layout de interface de configuração;
+    OK  Corrigir bug HiDPI (borrado em alguns níveis de zoom)
+    OK  Implementar zoom vetorial?
+    OK  Implementar panning
+    OK  Impedir de remover ponto comum às curvas.
+    OK  Mover ponto comum de ambas as curvas simultaneamente.
+    x   Implementar C0 opcional?
+    x   Exibir parâmetro t? (aka u);
+        Implementar eventos de touch (celular/C630)
+        Implementar eventos de caneta (X380Y)
 
-OK  Corrigir menu de contexto fora do viewport quando próximo do limite inferior ou direito
-    Reimplementar manualmente Cox-De Boor;
-    Reimplementar manualmente De Casteljau
-OK  Ajustar x, y do ponto também com clique do botão direito.
-OK  Ocultar/exibir configurações gerais;
-OK  Implementar checkbox para exibir nós;
+        Implementar tema escuro / automático?
+        Popup de sobre/licença;
 
-OK? Grid layout de interface de configuração;
-OK  Corrigir bug HiDPI (borrado em alguns níveis de zoom)
-    Implementar eventos de touch (celular/C630)
-    Implementar eventos de caneta (X380Y)
+        Implementar Ctrl+Z? (pode não ser tão trivial assim para drag?)
+        Tooltips para checkboxes, botões, etc
+            usar mesmo estilo usado nos popups sobre pontos?
 
-OK  Implementar zoom vetorial?
-OK  Implementar panning
-OK  Impedir de remover ponto comum às curvas.
-OK  Mover ponto comum de ambas as curvas simultaneamente.
-x   Implementar C0 opcional?
-x   Exibir parâmetro t? (aka u);
+Matemática:
+        Referenciar/Reimplementar manualmente Cox-De Boor
+        Referenciar/Reimplementar manualmente De Casteljau
+        Referenciar/Reimplementar manualmente 1ª derivada da NURBS
+        Referenciar/Reimplementar manualmente 1ª derivada da bézier
+        Referenciar/Reimplementar manualmente 2ª derivada da NURBS
+        Referenciar/Reimplementar manualmente 2ª derivada da bézier
 
-    Implementar tema escuro / automático?
-    Popup de sobre/licença;
-
-    Implementar Ctrl+Z? (pode não ser tão trivial assim para drag?)
-    Tooltips para checkboxes, botões, etc
-        usar mesmo estilo usado nos popups sobre pontos?
+        Implementar G2
+        Implementar C2

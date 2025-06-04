@@ -221,9 +221,6 @@ function handleWheel(e) {
   // Store current mouse position before resetting pan
   const { x, y } = getCanvasCoords(canvas, e.clientX, e.clientY);
   
-  // Reset pan when zooming
-  panOffset = { x: 0, y: 0 };
-  
   const delta = e.deltaY > 0 ? -0.1 : 0.1;
   const newZoom = Math.min(Math.max(1.0, zoomLevel + delta), 4.0);
 
@@ -333,6 +330,11 @@ function showPointInfoPopup(e, pointIndex) {
   const popup = document.getElementById('pointInfoPopup');
   popup.style.left = `${e.clientX + 15}px`;
   popup.style.top = `${e.clientY + 15}px`;
+  
+  //Evita que o popup apareça fora do viewport se ponto está próximo das bordas direita/inferior:
+  popup.style.left = (e.clientX + 210 > window.innerWidth)? `${e.clientX - 210}px`:`${e.clientX + 15}px`;
+  popup.style.top = (e.clientY + 100 > window.innerHeight)? `${e.clientY - 100}px`:`${e.clientY + 15}px`;
+
   popup.classList.add('visible');
   hoveredPointIndex = pointIndex;
 }
@@ -447,6 +449,9 @@ function enforceC1() {
   draw();
 }
 
+
+
+
 /*** Gerenciamento geral de movimentação de pontos: 
  * usado tanto por arrasto quanto por entradas numéricas x,y do menu de contexto.
  * Inclui casos especiais.
@@ -455,9 +460,8 @@ function handlePointMovement(pointIndex, newX, newY) {
   // const forceC0 = document.getElementById("forceC0").checked   //não implementado
   const forceC1 = document.getElementById("forceC1").checked
   // const forceC2 = document.getElementById("forceC2").checked   //a implementar
-  if (pointIndex <= 3 ) showDebugPopup();  //exibe popup para pontos próximos de 0
+  if (pointIndex <= 3 ) showDebugPopup();  //Sempre exibe popup para movimento de pontos próximos de 0
   if (pointIndex === 0) { //casos especiais para ponto 0
-    // showDebugPopup();
     const prevX = bezierControlPoints[0].x;
     const prevY = bezierControlPoints[0].y;
     //Sempre garante C0: pontos 0 das duas curvas são unidos:
@@ -476,7 +480,6 @@ function handlePointMovement(pointIndex, newX, newY) {
       NURBScontrolPoints[1].y += deltaY;
     }
   } else if (pointIndex === 1 && forceC1) { 
-    // showDebugPopup();
     const point0 = bezierControlPoints[0];
     const newVec = { x: newX - point0.x, y: newY - point0.y };
     
