@@ -19,35 +19,32 @@ const ADD_POINT_THRESHOLD = POINT_HIT_THRESHOLD * 1.5;  //proximidade mínima pa
 let selectedCurve = 'NURBS'; // or 'Bézier'
 let NURBSknotVector = [];
 
-//Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva se aplicável.
-//Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS.
-const NURBS_DEGREE = 3; 
-const BEZIER_DEGREE = 7; 
-
 let NURBScontrolPoints = [ //Curva inicial (pré-definida)
-    { x: 590, y: 600, z: 0, weight: 1 },
-    { x: 660, y: 833, z: 0, weight: 1 },
-    { x: 700, y: 720, z: 0, weight: 1 },
-    { x: 800, y: 200, z: 0, weight: 1 },
-    { x: 790, y: 750, z: 0, weight: 1 },
-    { x: 900, y: 600, z: 0, weight: 1 },
-    { x: 700, y: 490, z: 0, weight: 1 },
-    { x: 660, y: 550, z: 0, weight: 1 },
+    { x: 390, y: 700, z: 0, weight: 1 },
+    { x: 707, y: 727, z: 0, weight: 1 },
+    { x: 480, y: 504, z: 0, weight: 1 },
+    { x: 820, y: 450, z: 0, weight: 1 },
+    { x: 410, y: 610, z: 0, weight: 1 },
+    { x: 320, y: 550, z: 0, weight: 1 },
+    { x: 410, y: 510, z: 0, weight: 1 },
+    { x: 660, y: 680, z: 0, weight: 1 },
 ];
 
 let bezierControlPoints = [ //Curva inicial (pré-definida)
+    { x: 280, y: 600, z: 0 },
+    { x:  60, y: 600, z: 0 },
+    { x:  40, y: 490, z: 0 },
+    { x: 230, y: 520, z: 0 },
+    { x: 280, y: 550, z: 0 },
+    { x:  60, y: 650, z: 0 },
+    { x: 254, y: 688, z: 0 },
     { ...NURBScontrolPoints[0] },  //precisa ser também dinamicamente definido como igual ao primeiro ponto da NURBS ao alterar.
-    { x: 560, y: 500, z: 0 },
-    { x: 450, y: 750, z: 0 },
-    { x: 400, y: 500, z: 0 },
-    { x: 350, y: 800, z: 0 },
-    { x: 300, y: 550, z: 0 },
-    { x: 250, y: 575, z: 0 },
-    { x: 530, y: 650, z: 0 },
 ];
 
-let bezierTangent = {x:45, y:45, mag:0, angle:0}
-let NURBStangent = {x:-45, y:-45, mag:0, angle:0}
+//Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva se aplicável.
+//Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS.
+const NURBS_DEGREE = 3; 
+const BEZIER_DEGREE = bezierControlPoints.length-1; 
 
 let zoomLevel = 1.0;
 let zoomOrigin = { x: 0, y: 0 };
@@ -366,64 +363,221 @@ function hidePointInfoPopup() { //fechamento animado:
 
 
 
+// let bezier1stDerivative = {x:45, y:45, mag:0, angle:0}  //global pois é usado por showDebugPopup() e drawTangentVectors()
+// let NURBS1stDerivative = {x:45, y:45, mag:0, angle:0}
 
 
+// function calculateTangentVectors() {
+//   bezier1stDerivative.x = BEZIER_DEGREE * (bezierControlPoints[7].x - bezierControlPoints[6].x); /** Cap. 13 de https://pomax.github.io/bezierinfo/ */
+//   bezier1stDerivative.y = BEZIER_DEGREE * (bezierControlPoints[7].y - bezierControlPoints[6].y);
+//   bezier1stDerivative.mag = Math.hypot(bezier1stDerivative.x, bezier1stDerivative.y);
+//   bezier1stDerivative.angle = Math.atan2(bezier1stDerivative.y, bezier1stDerivative.x) * (180 / Math.PI);
+  
+//   /**Mágica, revisar: */
+//   const nurbsP0 = NURBScontrolPoints[0];
+//   const nurbsP1 = NURBScontrolPoints[1];
+//   const knotDiff = NURBSknotVector[NURBS_DEGREE + 1] - NURBSknotVector[1];
+//   const weightRatio = nurbsP1.weight / nurbsP0.weight;
+//   const nurbsFactor = NURBS_DEGREE / knotDiff;
+  
+//   NURBS1stDerivative.x = nurbsFactor * weightRatio * (nurbsP1.x - nurbsP0.x);
+//   NURBS1stDerivative.y = nurbsFactor * weightRatio * (nurbsP1.y - nurbsP0.y);
+//   NURBS1stDerivative.mag = Math.hypot(NURBS1stDerivative.x, NURBS1stDerivative.y);
+//   NURBS1stDerivative.angle = Math.atan2(NURBS1stDerivative.y, NURBS1stDerivative.x) * (180 / Math.PI);
+//   /** Fim dá mágica */
 
-function showDebugPopup() {
-  clearTimeout(debugTimeout);
-  const debugPopup = document.getElementById('debugPopup');
+//   let continuityLevel = "C0";
   
-  const bezP0 = bezierControlPoints[0];
-  const bezP1 = bezierControlPoints[1];
-  const bezierDegree = bezierControlPoints.length - 1;
-  bezierTangent.x = bezierDegree * (bezP1.x - bezP0.x);    /** referenciar fórmula */
-  bezierTangent.y = bezierDegree * (bezP1.y - bezP0.y);
-  
-  /** Mágica: */
-  const nurbsP0 = NURBScontrolPoints[0];
-  const nurbsP1 = NURBScontrolPoints[1];
-  const knotDiff = NURBSknotVector[NURBS_DEGREE + 1] - NURBSknotVector[1];
-  const weightRatio = nurbsP1.weight / nurbsP0.weight;
-  const nurbsFactor = NURBS_DEGREE / knotDiff;
-  
-  NURBStangent.x = nurbsFactor * weightRatio * (nurbsP1.x - nurbsP0.x);
-  NURBStangent.y = nurbsFactor * weightRatio * (nurbsP1.y - nurbsP0.y);
-  /** Fim da mágica */
-
-  bezierTangent.mag = Math.sqrt(bezierTangent.x ** 2 + bezierTangent.y ** 2);
-  bezierTangent.angle = Math.atan2(bezierTangent.y, bezierTangent.x) * (180 / Math.PI);
-  
-  NURBStangent.mag = Math.sqrt(NURBStangent.x ** 2 + NURBStangent.y ** 2);
-  NURBStangent.angle = Math.atan2(NURBStangent.y, NURBStangent.x) * (180 / Math.PI);
-  
-  document.getElementById('bezierMagnitude').textContent = bezierTangent.mag.toFixed(3);
-  document.getElementById('bezierAngle').textContent = bezierTangent.angle.toFixed(2);
-  document.getElementById('NURBSmagnitude').textContent = NURBStangent.mag.toFixed(3);
-  document.getElementById('NURBSangle').textContent = NURBStangent.angle.toFixed(2);
-  
-  let continuityLevel = "C0"; // Assume continuidade C0 por padrão (obrigatória)
-  
-  if (bezierTangent.mag > 1e-4 && NURBStangent.mag > 1e-4) {
-    const angleDiff = Math.abs(Math.abs(bezierTangent.angle - NURBStangent.angle) - 180);
+//   if (bezier1stDerivative.mag > 1e-4 && NURBS1stDerivative.mag > 1e-4) {
+//     const angleDiff = Math.abs(Math.abs(bezier1stDerivative.angle - NURBS1stDerivative.angle));
     
-    if (angleDiff < 1) { //verifica se vetores são opostos, tolerância de 1°
-      if (Math.abs(bezierTangent.mag - NURBStangent.mag) < 1) {
-        continuityLevel = "C1"; //se magnitude e ângulo são iguais, C1.
-      } else {
-        continuityLevel = "G1"; //se apenas ângulo é igual, G1.
-      }
-    }
-  }
+//     if (angleDiff < 1) {
+//       if (Math.abs(bezier1stDerivative.mag - NURBS1stDerivative.mag) < 0.01) {
+//         continuityLevel = "C1";
+//       } else {
+//         continuityLevel = "G1";
+//       }
+//     }
+//   }
 
-  document.getElementById('continuityLevel').textContent = continuityLevel;
-  
-  debugPopup.classList.add('visible');
-  debugTimeout = setTimeout(() => {
-    debugPopup.classList.remove('visible');
-    draw();
-  }, 5000);
+//   return {
+//     bezierMag: bezier1stDerivative.mag,
+//     bezierAngle: bezier1stDerivative.angle,
+//     nurbsMag: NURBS1stDerivative.mag,
+//     nurbsAngle: NURBS1stDerivative.angle,
+//     continuityLevel
+//   };
+// }
+
+
+// Global variables
+let bezier1stDerivative = {x: 0, y: 0, mag: 0, angle: 0};
+let bezier2ndDerivative = {x: 0, y: 0, mag: 0, angle: 0};
+let NURBS1stDerivative = {x: 0, y: 0, mag: 0, angle: 0};
+let NURBS2ndDerivative = {x: 0, y: 0, mag: 0, angle: 0};
+
+function calculateNURBSTangentVectors() {
+
+    /** Mágica DS v3 0324: */
+    // NURBS first derivative:
+    const nurbsP0 = NURBScontrolPoints[0];
+    const nurbsP1 = NURBScontrolPoints[1];
+    const knotDiff = NURBSknotVector[NURBS_DEGREE + 1] - NURBSknotVector[1];
+    const weightRatio = nurbsP1.weight / nurbsP0.weight;
+    const nurbsFactor = NURBS_DEGREE / knotDiff;
+    
+    NURBS1stDerivative.x = nurbsFactor * weightRatio * (nurbsP1.x - nurbsP0.x);
+    NURBS1stDerivative.y = nurbsFactor * weightRatio * (nurbsP1.y - nurbsP0.y);
+    NURBS1stDerivative.mag = Math.hypot(NURBS1stDerivative.x, NURBS1stDerivative.y);
+    NURBS1stDerivative.angle = Math.atan2(NURBS1stDerivative.y, NURBS1stDerivative.x) * (180 / Math.PI);
+
+    // NURBS second derivative
+    if (NURBScontrolPoints.length >= NURBS_DEGREE + 1) {
+        const k = NURBS_DEGREE;
+        const span = NURBS_DEGREE; // For clamped curves, we're evaluating at end (span = degree)
+        
+        // Get relevant control points and weights
+        const p0 = NURBScontrolPoints[0];
+        const p1 = NURBScontrolPoints[1];
+        const p2 = NURBScontrolPoints[2];
+        const w0 = p0.weight;
+        const w1 = p1.weight;
+        const w2 = p2.weight;
+        
+        // Get knot differences - need to handle multiplicity
+        const u = NURBSknotVector;
+        const u0 = u[span];
+        const u1 = u[span+1];
+        const u2 = u[span+2];
+        
+        // Check if we're at a clamped endpoint with knot multiplicity
+        const isClampedStart = (span < k && u[0] === u[span]);
+        const isClampedEnd = (span >= u.length - k - 1 && u[span] === u[u.length-1]);
+        
+        if (isClampedStart || isClampedEnd) {
+            // Simplified formula for clamped endpoints (knot multiplicity = degree + 1)
+            // Same as Bézier but weighted
+            const weightRatio = w2 / w0;
+            NURBS2ndDerivative.x = k * (k - 1) * weightRatio * (p2.x - 2 * p1.x + p0.x);
+            NURBS2ndDerivative.y = k * (k - 1) * weightRatio * (p2.y - 2 * p1.y + p0.y);
+        } else {
+            // General case formula (accounting for possible interior knot multiplicity)
+            const denom1 = (u1 - u0);
+            const denom2 = (u2 - u0);
+            
+            // First term requires u1 ≠ u0 and u2 ≠ u0
+            let term1x = 0, term1y = 0;
+            if (denom1 !== 0 && denom2 !== 0) {
+                const temp = k * (k - 1) * (w2/w0) / (denom1 * denom2);
+                term1x = temp * (p2.x - 2 * p1.x + p0.x);
+                term1y = temp * (p2.y - 2 * p1.y + p0.y);
+            }
+            
+            // Second term components
+            let term2_part1x = 0, term2_part1y = 0;
+            let term2_part2x = 0, term2_part2y = 0;
+            
+            if ((u2 - u1) !== 0) {
+                const temp = (w2/w0) / (u2 - u1);
+                term2_part1x = temp * (p2.x - p1.x);
+                term2_part1y = temp * (p2.y - p1.y);
+            }
+            
+            if ((u1 - u0) !== 0) {
+                const temp = (w1/w0) / (u1 - u0);
+                term2_part2x = temp * (p1.x - p0.x);
+                term2_part2y = temp * (p1.y - p0.y);
+            }
+            
+            const term2x = (denom2 !== 0) ? k * (term2_part1x - term2_part2x) / denom2 : 0;
+            const term2y = (denom2 !== 0) ? k * (term2_part1y - term2_part2y) / denom2 : 0;
+            
+            NURBS2ndDerivative.x = term1x + term2x;
+            NURBS2ndDerivative.y = term1y + term2y;
+        }
+        
+        // Calculate magnitude and angle
+        NURBS2ndDerivative.mag = Math.hypot(NURBS2ndDerivative.x, NURBS2ndDerivative.y);
+        NURBS2ndDerivative.angle = Math.atan2(NURBS2ndDerivative.y, NURBS2ndDerivative.x) * (180 / Math.PI);
+    } else {
+        // Not enough control points
+        NURBS2ndDerivative.x = NURBS2ndDerivative.y = 0;
+        NURBS2ndDerivative.mag = 0;
+        NURBS2ndDerivative.angle = 0;
+    }
 }
 
+function calculateBezierTangentVectors(){
+    /** Cap. 13 de https://pomax.github.io/bezierinfo/ */
+    // Primeira derivada em t=1: B'(1) = degree*(P[n] - P[n-1])
+    bezier1stDerivative.x = BEZIER_DEGREE * (bezierControlPoints[BEZIER_DEGREE].x - bezierControlPoints[BEZIER_DEGREE-1].x);
+    bezier1stDerivative.y = BEZIER_DEGREE * (bezierControlPoints[BEZIER_DEGREE].y - bezierControlPoints[BEZIER_DEGREE-1].y);
+    bezier1stDerivative.mag = Math.hypot(bezier1stDerivative.x, bezier1stDerivative.y);
+    bezier1stDerivative.angle = Math.atan2(bezier1stDerivative.y, bezier1stDerivative.x) * (180 / Math.PI);
+    
+    // Segunda derivada em t=1: B''(1) = degree*(degree-1)*(P[degree] - 2*P[degree-1] + P[degree-2])
+    bezier2ndDerivative.x = BEZIER_DEGREE * (BEZIER_DEGREE - 1) * (bezierControlPoints[BEZIER_DEGREE].x - 2 * bezierControlPoints[BEZIER_DEGREE-1].x + bezierControlPoints[BEZIER_DEGREE-2].x);
+    bezier2ndDerivative.y = BEZIER_DEGREE * (BEZIER_DEGREE - 1) * (bezierControlPoints[BEZIER_DEGREE].y - 2 * bezierControlPoints[BEZIER_DEGREE-1].y + bezierControlPoints[BEZIER_DEGREE-2].y);
+    bezier2ndDerivative.mag = Math.hypot(bezier2ndDerivative.x, bezier2ndDerivative.y);
+    bezier2ndDerivative.angle = Math.atan2(bezier2ndDerivative.y, bezier2ndDerivative.x) * (180 / Math.PI);
+}
+
+function checkContinuityLevel(){    // Revisar
+    let continuityLevel = "C0";
+    
+    if (bezier1stDerivative.mag > 1e-4 && NURBS1stDerivative.mag > 1e-4) {
+        const angleDiff = Math.abs(Math.abs(bezier1stDerivative.angle - NURBS1stDerivative.angle));
+        
+        if (angleDiff < 1) {
+            if (Math.abs(bezier1stDerivative.mag - NURBS1stDerivative.mag) < 0.01) {
+                continuityLevel = "C1";
+                
+                // Check for C2 continuity
+                if (bezier2ndDerivative.mag > 1e-4 && NURBS2ndDerivative.mag > 1e-4) {
+                    const angleDiff2nd = Math.abs(Math.abs(bezier2ndDerivative.angle - NURBS2ndDerivative.angle));
+                    
+                    if (angleDiff2nd < 1) {
+                        if (Math.abs(bezier2ndDerivative.mag - NURBS2ndDerivative.mag) < 0.01) {
+                            continuityLevel = "C2";
+                        } else {
+                            continuityLevel = "G2";
+                        }
+                    }
+                }
+            } else {
+                continuityLevel = "G1";
+            }
+        }
+    }
+    return continuityLevel;
+}
+
+function showDebugPopup() {
+    clearTimeout(debugTimeout);
+    const debugPopup = document.getElementById('debugPopup');
+    calculateBezierTangentVectors();
+    calculateNURBSTangentVectors(); //calcula tangentes e armazena em variável global (usada também por drawTangentVectors)
+    let continuityLevel= checkContinuityLevel();
+    
+    // Update the display
+    document.getElementById('bezierMagnitude').textContent = bezier1stDerivative.mag.toFixed(3);
+    document.getElementById('bezierAngle').textContent = bezier1stDerivative.angle.toFixed(2);
+    document.getElementById('NURBSmagnitude').textContent = NURBS1stDerivative.mag.toFixed(3);
+    document.getElementById('NURBSangle').textContent = NURBS1stDerivative.angle.toFixed(2);
+    
+    document.getElementById('bezierMagnitude2').textContent = bezier2ndDerivative.mag.toFixed(3);
+    document.getElementById('bezierAngle2').textContent = bezier2ndDerivative.angle.toFixed(2);
+    document.getElementById('NURBSmagnitude2').textContent = NURBS2ndDerivative.mag.toFixed(3);
+    document.getElementById('NURBSangle2').textContent = NURBS2ndDerivative.angle.toFixed(2);
+
+    document.getElementById('continuityLevel').textContent = continuityLevel;
+    
+    debugPopup.classList.add('visible');
+    debugTimeout = setTimeout(() => {
+        debugPopup.classList.remove('visible');
+        draw();
+    }, 5000);
+}
 
 
 
@@ -436,16 +590,17 @@ function showDebugPopup() {
 function enforceC1() {
   const forceC1 = document.getElementById("forceC1").checked;
   if (forceC1){
-    const point0 = bezierControlPoints[0];
+    const point0 = bezierControlPoints[BEZIER_DEGREE];
     const referenceVec = {
-      x: (bezierControlPoints[1].x - point0.x) / NURBS_DEGREE * BEZIER_DEGREE,
-      y: (bezierControlPoints[1].y - point0.y) / NURBS_DEGREE * BEZIER_DEGREE,
+      x: (bezierControlPoints[BEZIER_DEGREE - 1].x - point0.x) / NURBS_DEGREE * BEZIER_DEGREE,    //empírico
+      y: (bezierControlPoints[BEZIER_DEGREE - 1].y - point0.y) / NURBS_DEGREE * BEZIER_DEGREE,
     };
     
     NURBScontrolPoints[1].x = point0.x - referenceVec.x;
     NURBScontrolPoints[1].y = point0.y - referenceVec.y;
     NURBScontrolPoints[1].weight = 1 //fixa peso em 1 para ponto
   }
+  showDebugPopup()
   draw();
 }
 
@@ -460,50 +615,95 @@ function handlePointMovement(pointIndex, newX, newY) {
   // const forceC0 = document.getElementById("forceC0").checked   //não implementado
   const forceC1 = document.getElementById("forceC1").checked
   // const forceC2 = document.getElementById("forceC2").checked   //a implementar
-  if (pointIndex <= 3 ) showDebugPopup();  //Sempre exibe popup para movimento de pontos próximos de 0
-  if (pointIndex === 0) { //casos especiais para ponto 0
-    const prevX = bezierControlPoints[0].x;
-    const prevY = bezierControlPoints[0].y;
-    //Sempre garante C0: pontos 0 das duas curvas são unidos:
-    bezierControlPoints[0].x = newX;
-    bezierControlPoints[0].y = newY;
-    NURBScontrolPoints[0].x = newX;
-    NURBScontrolPoints[0].y = newY;
-    if (forceC1){
-      const deltaX = newX - prevX;
-      const deltaY = newY - prevY;
-    
-      bezierControlPoints[1].x += deltaX;
-      bezierControlPoints[1].y += deltaY;
 
-      NURBScontrolPoints[1].x += deltaX;
-      NURBScontrolPoints[1].y += deltaY;
-    }
-  } else if (pointIndex === 1 && forceC1) { 
-    const point0 = bezierControlPoints[0];
-    const newVec = { x: newX - point0.x, y: newY - point0.y };
-    
-    if (selectedCurve === 'NURBS') {
-      NURBScontrolPoints[1].x = newX;
-      NURBScontrolPoints[1].y = newY;
-      bezierControlPoints[1].x = point0.x - (newVec.x / BEZIER_DEGREE * NURBS_DEGREE);
-      bezierControlPoints[1].y = point0.y - (newVec.y / BEZIER_DEGREE * NURBS_DEGREE);
-    } else {
-      bezierControlPoints[1].x = newX;
-      bezierControlPoints[1].y = newY;
-      NURBScontrolPoints[1].x = point0.x - (newVec.x /  NURBS_DEGREE * BEZIER_DEGREE);
-      NURBScontrolPoints[1].y = point0.y - (newVec.y /  NURBS_DEGREE * BEZIER_DEGREE);
-    }
-  } else {
-    if (selectedCurve === 'NURBS') {
-      NURBScontrolPoints[pointIndex].x = newX;
-      NURBScontrolPoints[pointIndex].y = newY;
-    } else {
-      bezierControlPoints[pointIndex].x = newX;
-      bezierControlPoints[pointIndex].y = newY;
-    }
+  if (selectedCurve === 'NURBS') {
+      if (pointIndex <= NURBS_DEGREE ) showDebugPopup();  //Sempre exibe popup para movimento de pontos próximos de 0
+      if (pointIndex === 0) { //casos especiais para ponto 0
+          //obtém valores anteriores antes de atualizar (caso necessário para forceC1)
+          const prevX = bezierControlPoints[BEZIER_DEGREE].x;
+          const prevY = bezierControlPoints[BEZIER_DEGREE].y;
+          //Sempre garante C0:
+          bezierControlPoints[BEZIER_DEGREE].x = newX;
+          bezierControlPoints[BEZIER_DEGREE].y = newY;
+          NURBScontrolPoints[0].x = newX;
+          NURBScontrolPoints[0].y = newY;
+          if (forceC1){ //ao manipular ponto inicial da NURBS, ajusta automaticamente os pontos adjacentes
+              const deltaX = newX - prevX;
+              const deltaY = newY - prevY;
+            
+              bezierControlPoints[BEZIER_DEGREE-1].x += deltaX;
+              bezierControlPoints[BEZIER_DEGREE-1].y += deltaY;
+
+              NURBScontrolPoints[1].x += deltaX;
+              NURBScontrolPoints[1].y += deltaY;
+          }
+      } else if (pointIndex === 1 && forceC1) { 
+          const point0 = NURBScontrolPoints[0];
+          const newVec = { x: newX - point0.x, y: newY - point0.y };
+          NURBScontrolPoints[1].x = newX;
+          NURBScontrolPoints[1].y = newY;
+          bezierControlPoints[BEZIER_DEGREE-1].x = point0.x - (newVec.x / BEZIER_DEGREE * NURBS_DEGREE);
+          bezierControlPoints[BEZIER_DEGREE-1].y = point0.y - (newVec.y / BEZIER_DEGREE * NURBS_DEGREE);
+      } else {  //caso geral
+          NURBScontrolPoints[pointIndex].x = newX;
+          NURBScontrolPoints[pointIndex].y = newY;
+      }
+  } else {  //bézier:
+      if (pointIndex >= NURBS_DEGREE ) showDebugPopup();  //Sempre exibe popup para movimento de pontos próximos de NURBS inicial (bézier final)
+      if (pointIndex === BEZIER_DEGREE) { //casos especiais para último ponto de bézier
+          //obtém valores anteriores antes de atualizar (caso necessário para forceC1)
+          const prevX = bezierControlPoints[BEZIER_DEGREE].x;
+          const prevY = bezierControlPoints[BEZIER_DEGREE].y;
+          //Sempre garante C0:
+          bezierControlPoints[BEZIER_DEGREE].x = newX;
+          bezierControlPoints[BEZIER_DEGREE].y = newY;
+          NURBScontrolPoints[0].x = newX;
+          NURBScontrolPoints[0].y = newY;
+          if (forceC1){ //ao manipular ponto final da bézier, ajusta automaticamente os pontos adjacentes
+              const deltaX = newX - prevX;
+              const deltaY = newY - prevY;
+        
+              bezierControlPoints[BEZIER_DEGREE-1].x += deltaX;
+              bezierControlPoints[BEZIER_DEGREE-1].y += deltaY;
+
+              NURBScontrolPoints[1].x += deltaX;
+              NURBScontrolPoints[1].y += deltaY;
+          }
+      } else if (pointIndex === BEZIER_DEGREE-1 && forceC1) { //ponto adjacente ao ponto final.
+        const point0 = bezierControlPoints[BEZIER_DEGREE];
+        const newVec = { x: newX - point0.x, y: newY - point0.y };
+
+        bezierControlPoints[BEZIER_DEGREE-1].x = newX;
+        bezierControlPoints[BEZIER_DEGREE-1].y = newY;
+        NURBScontrolPoints[1].x = point0.x - (newVec.x /  NURBS_DEGREE * BEZIER_DEGREE);
+        NURBScontrolPoints[1].y = point0.y - (newVec.y /  NURBS_DEGREE * BEZIER_DEGREE);
+      } else {  //caso geral
+          bezierControlPoints[pointIndex].x = newX;
+          bezierControlPoints[pointIndex].y = newY;
+      }
   }
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*** Gerenciamento de pontos: */
 function updatePointPosition() {
@@ -644,7 +844,6 @@ function setNURBSknotVector() { //OK  //referenciar
     //   NURBSknotVector.push(1);
     // }
 
-
     const formattedKnots = NURBSknotVector.map(k => {
       const num = typeof k === 'string' ? parseFloat(k) : k;
       return num % 1 === 0 ? num.toString() : parseFloat(num.toFixed(2)).toString();
@@ -659,26 +858,16 @@ function setNURBSknotVector() { //OK  //referenciar
 function draw() {
   requestAnimationFrame(() => { //limita taxa de atualização ao FPS do dispositivo:
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Apply transformation
     ctx.save();
-    ctx.translate(panOffset.x, panOffset.y); // Add this line
-    ctx.translate(zoomOrigin.x, zoomOrigin.y);
-    ctx.scale(zoomLevel, zoomLevel);
-    ctx.translate(-zoomOrigin.x, -zoomOrigin.y);
+
+      ctx.translate(panOffset.x, panOffset.y);
+      ctx.translate(zoomOrigin.x, zoomOrigin.y);
+      ctx.scale(zoomLevel, zoomLevel);
+      ctx.translate(-zoomOrigin.x, -zoomOrigin.y);
       
       ctx.font = '12px system-ui';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
 
-      // Identifica opções de visualização em uso:
-      const showControlPolygon =  document.getElementById('showControlPolygon').checked;
-      const showWeights =         document.getElementById('showWeights').checked;
-      const showControlPoints =   document.getElementById('showControlPoints').checked;
-      const showPointIndex =      document.getElementById('showPointIndex').checked;
-      const showKnots =           document.getElementById('showKnots').checked;
-
-      if (showControlPolygon) { //OK: "Exibir polígono de controle"
+      if (document.getElementById('showControlPolygon').checked){ //OK: "Exibir polígono de controle"
         ctx.beginPath();
         ctx.moveTo(NURBScontrolPoints[0].x, NURBScontrolPoints[0].y);
         for (let i = 1; i < NURBScontrolPoints.length; i++) {
@@ -702,14 +891,14 @@ function draw() {
         ctx.stroke();
       }
 
-      if (showPointIndex){ //OK: "Exibir índices"
+      if (document.getElementById('showPointIndex').checked){ //OK: "Exibir índices"
         NURBScontrolPoints.forEach((point, index) => {
           ctx.fillStyle = '#208030e0';
-          ctx.fillText(index.toString(), point.x - 5, point.y - 15);
+          ctx.fillText(index.toString(), point.x - 8, point.y - 10);
         });
         bezierControlPoints.forEach((point, index) => {
             ctx.fillStyle = '#802030e0';
-            ctx.fillText(index.toString(), point.x - 5, point.y - 15);
+            ctx.fillText(index.toString(), point.x - 2, point.y - 10);
         });
       }  
 
@@ -717,21 +906,22 @@ function draw() {
       drawBezierCurve();
       
       //Nós e pontos de controle precisam aparecer 'por cima' das curvas, todo o resto 'por baixo':
-      
       if (document.getElementById('debugPopup').classList.contains('visible')){ //OK  //exibe vetor tangente enquanto popu está ativo
-        drawTangentVector(bezierTangent, '#9006');
-        drawTangentVector(NURBStangent, '#0906');
+        drawTangentVector(bezier1stDerivative, '#F006');  //vetores calculados previamente por showDebugPopup();
+        drawTangentVector(NURBS1stDerivative, '#0F04');
+        drawTangentVector(bezier2ndDerivative, '#F806'); 
+        drawTangentVector(NURBS2ndDerivative, '#08F4');
       }
 
-      if (showWeights) { //OK: "Exibir pesos"
+      if (document.getElementById('showWeights').checked) { //OK: "Exibir pesos"
         NURBScontrolPoints.forEach((point) => {
             ctx.font = '10px system-ui';
             ctx.fillStyle = '#010';
             ctx.fillText(`w:${point.weight.toFixed(1)}`, point.x + 10, point.y - 10);
         });
       }
-      //pontos de controle aparece 'por cima' da curva, todo o resto 'por baixo'.
-      if (showKnots) {  //"Exibir nós"
+    
+      if (document.getElementById('showKnots').checked) {  //Mágica //"Exibir nós"
         /** refazer: */
         const u_min = NURBSknotVector[NURBS_DEGREE];
         const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
@@ -757,7 +947,7 @@ function draw() {
         });
       }
 
-      if (showControlPoints){ //OK: "Exibir pontos de controle"
+      if (document.getElementById('showControlPoints').checked){ //OK: "Exibir pontos de controle"
         NURBScontrolPoints.forEach((point) => {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
@@ -782,103 +972,7 @@ function draw() {
   })
 }
 
-/*** Mágica: (Implementação DS V3 -- reescrever cf. livro. */
-function basisFunction(i, p, u, knots) { //converter para De Boor
-    if (p === 0) {
-        // Handle the end of the interval inclusively
-        if (u < knots[i] || u > knots[i + 1]) return 0.0;
-        // Special case for the last knot
-        if (u === knots[knots.length - p - 1] && i === knots.length - p - 2) return 1.0;
-        return (knots[i] <= u && u <= knots[i + 1]) ? 1.0 : 0.0;
-    } else {
-        const left = (knots[i + p] - knots[i]) === 0 ? 0 : 
-            ((u - knots[i]) / (knots[i + p] - knots[i])) * basisFunction(i, p - 1, u, knots);
-        const right = (knots[i + p + 1] - knots[i + 1]) === 0 ? 0 : 
-            ((knots[i + p + 1] - u) / (knots[i + p + 1] - knots[i + 1])) * basisFunction(i + 1, p - 1, u, knots);
-        return left + right;
-    }
-}
-
-function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {
-    let x = 0, y = 0, z = 0;
-    let weightSum = 0;
-
-    for (let i = 0; i < NURBScontrolPoints.length; i++) {  //para cada ponto de controle:
-        const basis = basisFunction(i, NURBS_DEGREE, u, knots);
-        const weightedBasis = basis * NURBScontrolPoints[i].weight;
-        x += NURBScontrolPoints[i].x * weightedBasis;
-        y += NURBScontrolPoints[i].y * weightedBasis;
-        z += NURBScontrolPoints[i].z * weightedBasis;
-        weightSum += weightedBasis;
-    }
-    return {
-        x: x / weightSum,
-        y: y / weightSum,
-        z: z / weightSum
-    };
-}
-
-function evaluateBezier(t, points) { // De Casteljau's algorithm
-    const n = points.length - 1;
-    let workingPoints = [...points];
-    
-    for (let level = 1; level <= n; level++) {
-        for (let i = 0; i <= n - level; i++) {
-            workingPoints[i] = {
-                x: (1 - t) * workingPoints[i].x + t * workingPoints[i + 1].x,
-                y: (1 - t) * workingPoints[i].y + t * workingPoints[i + 1].y,
-                z: 0
-            };
-        }
-    }
-    return workingPoints[0];
-}
-
-function drawBezierCurve() {  /** reescrever */
-    const sampleCount = parseInt(document.getElementById('sampleCount').value) * bezierControlPoints.length;
-    ctx.beginPath();
-    
-    // First point
-    const startPoint = bezierControlPoints[0];
-    ctx.moveTo(startPoint.x, startPoint.y);
-    
-    // Sample the curve
-    for (let i = 1; i <= sampleCount; i++) {
-        const t = i / sampleCount;
-        const point = evaluateBezier(t, bezierControlPoints);
-        ctx.lineTo(point.x, point.y);
-    }
-    
-    ctx.strokeStyle = '#800'; // Dark red for Bézier curve
-    ctx.lineWidth = 2;
-    ctx.stroke();
-}
-
-function drawNURBScurve() { /** reescrever */
-    // Get the valid parameter range [u_min, u_max]
-    const u_min = NURBSknotVector[NURBS_DEGREE];
-    const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
-    const sampleCount = ( parseInt(document.getElementById('sampleCount').value) * NURBScontrolPoints.length);
-    const delta = (u_max - u_min) / sampleCount;
-
-    // Evaluate first point
-    const startPoint = evaluateNURBS(u_min, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
-    ctx.beginPath();
-    ctx.moveTo(startPoint.x, startPoint.y);
-
-    // Sample the curve within the valid range
-    for (let i = 1; i <= sampleCount; i++) {
-        const u = Math.min(u_min + i * delta, u_max - Number.EPSILON);
-        const point = evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
-        ctx.lineTo(point.x, point.y);
-    }
-
-    ctx.strokeStyle = '#083';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-}
-/*** Fim da mágica. */
-function drawTangentVector(vector, color) {
+function drawTangentVector(vector, color) { //ok
   const start = NURBScontrolPoints[0];
   const scale = 0.1;
   const end = {
@@ -922,13 +1016,115 @@ function drawTangentVector(vector, color) {
   ctx.fill();
 }
 
+
+
+
+
+/*** Mágica: (Implementação DS V3 -- reescrever cf. livro. */
+function basisFunction(i, p, u, knots) { //converter para De Boor
+    if (p === 0) {
+        // Handle the end of the interval inclusively
+        if (u < knots[i] || u > knots[i + 1]) return 0.0;
+        // Special case for the last knot
+        if (u === knots[knots.length - p - 1] && i === knots.length - p - 2) return 1.0;
+        return (knots[i] <= u && u <= knots[i + 1]) ? 1.0 : 0.0;
+    } else {
+        const left = (knots[i + p] - knots[i]) === 0 ? 0 : 
+            ((u - knots[i]) / (knots[i + p] - knots[i])) * basisFunction(i, p - 1, u, knots);
+        const right = (knots[i + p + 1] - knots[i + 1]) === 0 ? 0 : 
+            ((knots[i + p + 1] - u) / (knots[i + p + 1] - knots[i + 1])) * basisFunction(i + 1, p - 1, u, knots);
+        return left + right;
+    }
+}
+
+function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {
+    let x = 0, y = 0, z = 0;
+    let weightSum = 0;
+
+    for (let i = 0; i < NURBScontrolPoints.length; i++) {  //para cada ponto de controle:
+        const basis = basisFunction(i, NURBS_DEGREE, u, knots);
+        const weightedBasis = basis * NURBScontrolPoints[i].weight;
+        x += NURBScontrolPoints[i].x * weightedBasis;
+        y += NURBScontrolPoints[i].y * weightedBasis;
+        z += NURBScontrolPoints[i].z * weightedBasis;
+        weightSum += weightedBasis;
+    }
+    return {
+        x: x / weightSum,
+        y: y / weightSum,
+        z: z / weightSum
+    };
+}
+function drawNURBScurve() { /** reescrever */
+    // Get the valid parameter range [u_min, u_max]
+    const u_min = NURBSknotVector[NURBS_DEGREE];
+    const u_max = NURBSknotVector[NURBSknotVector.length - NURBS_DEGREE - 1];
+    const sampleCount = parseInt(document.getElementById('sampleCount').value) * NURBScontrolPoints.length;
+    const delta = (u_max - u_min) / sampleCount;
+
+    // Evaluate first point
+    const startPoint = evaluateNURBS(u_min, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
+    ctx.beginPath();
+    ctx.moveTo(startPoint.x, startPoint.y);
+
+    // Sample the curve within the valid range
+    for (let i = 1; i <= sampleCount; i++) {
+        const u = Math.min(u_min + i * delta, u_max - Number.EPSILON);
+        const point = evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, NURBSknotVector);
+        ctx.lineTo(point.x, point.y);
+    }
+
+    ctx.strokeStyle = '#083';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+/*** Fim da mágica. */
+
+
+function deCasteljau(workingPoints, t) { //adaptado de pseudocódigo em https://pomax.github.io/bezierinfo/
+    if (workingPoints.length === 1) {
+        return workingPoints[0];
+    }
+    else{
+        const newPoints = [];
+        for (let i = 0; i < workingPoints.length - 1; i++) {
+            newPoints.push({
+                x: (1 - t) * workingPoints[i].x + t * workingPoints[i + 1].x,
+                y: (1 - t) * workingPoints[i].y + t * workingPoints[i + 1].y,
+                z: 0   //Não implementado, aplicação apenas 2D.
+            });
+        }
+        return deCasteljau(newPoints, t);
+    }
+}
+
+function drawBezierCurve() { //OK
+    const sampleCount = parseInt(document.getElementById('sampleCount').value) * bezierControlPoints.length;
+    ctx.beginPath();
+    
+    //Move-se ao primeiro ponto sem riscar nada:
+    const startPoint = bezierControlPoints[0];
+    ctx.moveTo(startPoint.x, startPoint.y);
+    
+    //Para o número de amostras sampleCount, desenha a curva usando segmentos de reta entre pontos amostrados:
+    for (let i = 1; i <= sampleCount; i++) {
+        const t = i / sampleCount;
+        const point = deCasteljau(bezierControlPoints, t);
+        ctx.lineTo(point.x, point.y);
+    }
+    
+    ctx.strokeStyle = '#800'; // vermelho escuro para Bézier.
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+
 /****** Helpers */
-function getCanvasCoords(canvas, clientX, clientY) {
+function getCanvasCoords(canvas, clientX, clientY) {  //OK
   const rect = canvas.getBoundingClientRect();
   const rawX = (clientX - rect.left);
   const rawY = (clientY - rect.top);
   
-  // Calculate effective coordinates considering both zoom and pan
   return {
     x: (rawX - panOffset.x) / zoomLevel + zoomOrigin.x * (1 - 1/zoomLevel),
     y: (rawY - panOffset.y) / zoomLevel + zoomOrigin.y * (1 - 1/zoomLevel)

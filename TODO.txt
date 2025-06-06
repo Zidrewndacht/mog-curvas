@@ -32,3 +32,4 @@ Matemática:
 
         Implementar G2
         Implementar C2
+        Corrigir direção representação vetores tangentes
