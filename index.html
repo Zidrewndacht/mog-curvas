@@ -6,7 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Curvas</title>
   <link rel="stylesheet" href="style.css">
-  <script src="scripts.js" defer></script>
+  <!-- <script src="scripts.js" defer></script> -->
+  <script src="math.js" defer></script>
+  <script src="draw.js" defer></script>
+  <script src="events.js" defer></script>
+  <script src="main.js" defer></script>
 </head>
 
 <body>
@@ -33,15 +37,15 @@
             <button id="applyKnots" style="display:none;">Aplicar</button>
           </div>
           <div class="checkbox-item">
-              <input type="checkbox" id="forceC0" checked disabled>
-              <label for="forceC0" class="checkbox-lbl">Forçar C0</label>
-          </div>
-          <div class="checkbox-item">
-              <input type="checkbox" id="forceC1" title="Ativar esta opção manipula automaticamente os pontos 1 ao interagir com pontos 0 ou 1. Também desabilita o ajuste de pesos e/ou a exclusão do ponto 1 da NURBS." checked>
+              <input type="checkbox" id="forceC1" title="Ativar esta opção manipula automaticamente os pontos 1 (NURBS) e 6 (bézier) ao interagir com pontos 0 ou 1. Também desabilita o ajuste de pesos e/ou a exclusão do ponto 1 da NURBS." >
               <label for="forceC1" class="checkbox-lbl" >Forçar C1</label>
           </div>
+          <!-- <div class="checkbox-item">
+              <input type="checkbox" id="forceG2" >
+              <label for="forceG2" class="checkbox-lbl">Forçar G2</label>
+          </div> -->
           <div class="checkbox-item">
-              <input type="checkbox" id="forceC2">
+              <input type="checkbox" id="forceC2" title="Ativar esta opção manipula automaticamente os pontos 1 e 2 (NURBS) e 5 e 6 (bézier) ao interagir com pontos 0 ou 1. Também desabilita o ajuste do vetor de nós, ajuste de pesos e/ou a exclusão dos pontos 1 a 4 da NURBS."> 
               <label for="forceC2" class="checkbox-lbl">Forçar C2</label>
           </div>
           <div id="sampleCount-container">
@@ -57,7 +61,7 @@
                 <label for="showControlPolygon" class="checkbox-lbl">Exibir polígono <br>de controle</label>
             </div>
             <div class="checkbox-item">
-                <input type="checkbox" id="showControlPoints" >
+                <input type="checkbox" id="showControlPoints" checked>
                 <label for="showControlPoints" class="checkbox-lbl">Exibir pontos <br>de controle</label>
             </div>
             <div class="checkbox-item">
@@ -98,37 +102,45 @@
 
   <div id="debugPopup" class="context-menu">
     <div class="menu-item">
-      Vetor tangente na Bézier: <span>
-        <span id="bezierMagnitude">0</span> ∠ 
-        <span id="bezierAngle">0</span>°
+      1ª Derivada na Bézier: <span>
+        <strong><span id="bezierMagnitude">0</span></strong> ∠ 
+        <strong><span id="bezierAngle">0</span>°</strong>
       </span>
     </div>
     <div class="menu-item">
-      Vetor tangente na NURBS: <span>
-        <span id="NURBSmagnitude">0</span> ∠ 
-        <span id="NURBSangle">0</span>°
+      1ª Derivada na NURBS: <span>
+        <strong><span id="NURBSmagnitude">0</span></strong> ∠ 
+        <strong><span id="NURBSangle">0</span>°</strong>
       </span>
     </div>
+    <br>
     
     <div class="menu-item">
-      Vetor'' Bézier: <span>
-        <span id="bezierMagnitude2">0</span> ∠ 
-        <span id="bezierAngle2">0</span>°
+      2ª Derivada Bézier: <span>
+        <strong><span id="bezierMagnitude2">0</span></strong> ∠ 
+        <strong><span id="bezierAngle2">0</span>°</strong>
       </span>
     </div>
     <div class="menu-item">
-      Vetor'' NURBS: <span>
-        <span id="NURBSmagnitude2">0</span> ∠ 
-        <span id="NURBSangle2">0</span>°
+      2ª Derivada NURBS: <span>
+        <strong><span id="NURBSmagnitude2">0</span></strong> ∠ 
+        <strong><span id="NURBSangle2">0</span>°</strong>
       </span>
     </div>
+    <br>
 
     <div class="menu-item">
       Continuidade: 
       <strong><span id="continuityLevel">G1</span></strong>
     </div>
-  </div>
+    <br>
+    <div class="menu-item">
+        <label for="showDebugPopup" class="checkbox-lbl">Manter popup e vetores sempre visíveis: </label>
+        <input type="checkbox" id="showDebugPopup">
+    </div>
 
+  </div>
+  
   <div id="pointInfoPopup" class="context-menu">
     <div class="menu-item">Tipo: <span id="curveType"></span></div>
     <div class="menu-item">Ponto: <span id="pointIndex">0</span></div>
@@ -143,10 +155,36 @@
     <!-- <div class="menu-item">Parâmetro t: <span id="tValue">0</span></div> -->
   </div>
 
+  
+  <div id="about-wrapper">
+    <div id="about">
+        <p>Desenvolvido por Luis Alfredo, como estudante de mestrado do PPGEEL da UDESC Joinville, como trabalho final para a disciplina de Modelagem Geométrica (Prof. Roberto S. U. Rosso Jr.)</p>
+        <p>Este trabalho está licenciado com licença <a target=_blank href="#">MIT</a>.</p>
+        <p>As operações envolvendo HTML Canvas, em sua maioria, já eram de conhecimento do autor. Para referência adicional, quando necessário, foi usada a <a target=_blank href="https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API">documentação da MDN.</a>
+
+        <p>Para conferência/comparação de resultados (em especial, verificação do comportamento da NURBS, identificando se equipara-se a uma implementação de terceiros), <a target=_blank href="https://nurbscalculator.in/">NURBS Calculator</a> foi utilizada.
+
+        <p>A implementação da curva de bézier foi adaptada a partir do pseudocódigo do algoritmo de De Casteljau do livro online <a target=_blank href="https://pomax.github.io/bezierinfo/">"A Primer on Bézier Curves".</a>
+
+        <p>Mortenson (2006) e The NURBS Book (e o <a target=_blank href="https://github.com/BIMCoderLiang/LNLib">código-fonte correspondente</a>) foram consultados, entretanto os outros recursos aqui indicados, em geral, foram mais didáticos e mais largamente utilizados.
+
+        <p>Algumas etapas foram auxiliadas por modelos de linguagem (especificamente <a target=_blank href="https://chat.deepseek.com/">DeepSeek</a> nas versões V3 0324 e R1 0528):
+        <ul>
+          <li>Identificação e correção de bugs nas técnicas de interação com o usuário;
+          <li>Adaptação do algoritmo da NURBS (Cox-De Boor);
+          <li>Adaptação das fórmulas para derivadas da NURBS;
+        </ul>
+        <p>A interface de usuário (caixas de seleção, botões, dicas de ferramenta, menus de contexto, animações, etc.) usa apenas HTML e CSS 'puros', também sem bibliotecas adicionais. A aplicação é intencionalmente desenvolvida de forma a não ter nenhuma dependência externa além dos arquivos HTML, CSS, JS inclusos.
+        <p>Clique em qualquer lugar da página para fechar esta janela.</p>
+
+    </div>
+  </div>
+
+
   <canvas id="curves-canvas"></canvas>
   <footer>
     <p><!--&copy; 2025 --> Luis Alfredo - Modelagem Geométrica - UDESC PPGEEL - 2025
-      <!--<a class="modal-small license-link" href="#">Sobre / Licença</a>-->
+      <a id="license-link" href="#">Sobre / Licença</a>
     </p>
   </footer>
 </body>

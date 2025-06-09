@@ -32,13 +32,58 @@ p, h1 {
     width: 680px;
 
     text-shadow: 0 2px 5px white;
-    box-shadow: 02px 10px 20px -9px #a0b2b6;
+    box-shadow: 2px 10px 20px -9px #a0b2b6;
     backdrop-filter: blur(10px);
     background: linear-gradient(#fefefea0 10%, #f2f4f5b0 100%);
     border: 1px solid #bbb;
     border-radius: 16px;
     z-index: 10;
     
+}
+#about-wrapper{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* background: #444a; */
+    backdrop-filter: blur(20px);
+    z-index: 1000;
+    perspective: 100vh;
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+    visibility: hidden;
+    transition: 
+        opacity 0.3s ease-in-out,
+        transform 0.3s ease-in-out,
+        visibility 0s linear 0.3s;
+}
+#about-wrapper.visible {
+    z-index: 10;
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    transition: 
+        opacity 0.2s ease-in-out,
+        transform 0.2s ease-in-out;
+    visibility: visible;
+}
+
+#about{
+    margin: auto;
+    max-width: 640px;
+    text-align: justify;
+    text-shadow: 0 2px 5px white;
+    box-shadow: 0px 15px 50px -9px #a0b2b6;
+    backdrop-filter: blur(10px);
+    background: linear-gradient(#fefefea0 10%, #f2f4f5b0 100%);
+    border: 1px solid #bbb;
+    border-radius: 16px;
+    z-index: 100;
+    padding: 10px;
+    line-height: 1.6em;
 }
 
 #ui-controls h1, #ui-controls p {
@@ -139,13 +184,17 @@ button:active {
 }
 footer p {
     position: fixed;
-    width: 100%;
+    width: calc(100% - 4px);
     bottom: 0;
     left:0;
-    padding: 0px;
+    padding: 2px;
     text-align: center;
     text-shadow: 0 2px 5px white;
     background-color: transparent;
+    /* display: inline-block; */
+    /* border: 1px solid red; */
+    border-radius: 8px;
+    margin: 2px;
 }
 
 .context-menu {
@@ -164,9 +213,9 @@ footer p {
     transform: scale(0.95) translateY(-5px);
     transform-origin: top left;
     transition: 
-        opacity 0.2s ease-in-out,
-        transform 0.2s ease-in-out,
-        visibility 0s linear 0.2s;
+        opacity 0.33s ease-in-out,
+        transform 0.33s ease-in-out,
+        visibility 0s linear 0.33s;
     visibility: hidden; /* oculto por padrão, para exibir adicione classe .visible */
     
     pointer-events: auto; /* Ensure menu can receive clicks */
@@ -257,6 +306,7 @@ footer p {
     right: 10px;
     z-index: 9999;
     min-width: 320px;
+    padding: 8px 8px 16px 8px;
 }
 
 /* Minimize Button Styles */
@@ -336,4 +386,20 @@ input[type="number"] {
 }
 #NURBSKnotWrapper{
     grid-column: 1/5;
+}
+
+#bezierMagnitude, #bezierAngle {
+    color: #800
+}
+
+#bezierMagnitude2, #bezierAngle2 {
+    color: hsl(323, 100%, 40%)
+}
+
+#NURBSmagnitude, #NURBSangle{
+    color: #080
+
+}
+#NURBSmagnitude2, #NURBSangle2{
+    color: #06d
 }
