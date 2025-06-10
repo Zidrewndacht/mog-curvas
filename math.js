@@ -73,13 +73,12 @@ function basisFunction(i, p, u, knots) { //converter para Cox-De Boor iterativo?
     }
 }
 
-function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {
+function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {//executada a cada amostra:
     let x = 0, y = 0, z = 0;
     let weightSum = 0;
 
     for (let i = 0; i < NURBScontrolPoints.length; i++) {  //para cada ponto de controle:
-        const basis = basisFunction(i, NURBS_DEGREE, u, knots);
-        const weightedBasis = basis * NURBScontrolPoints[i].weight;
+        const weightedBasis = basisFunction(i, NURBS_DEGREE, u, knots) * NURBScontrolPoints[i].weight;
         x += NURBScontrolPoints[i].x * weightedBasis;
         y += NURBScontrolPoints[i].y * weightedBasis;
         z += NURBScontrolPoints[i].z * weightedBasis;
@@ -92,17 +91,45 @@ function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {
     };
 }
 
-function calculateNURBSTangentVectors() {   /** Mágica DS R1 0528: */
+// function calculateNURBSTangentVectors() {   /** Mágica DS R1 0528: */
+//     const k = NURBS_DEGREE;
+//     const p0 = NURBScontrolPoints[0];
+//     const p1 = NURBScontrolPoints[1];
+//     const p2 = NURBScontrolPoints[2];
+    
+//     // 1st derivative (always valid for clamped endpoints)
+//     NURBS1stDerivative.x = k * (p1.x - p0.x);
+//     NURBS1stDerivative.y = k * (p1.y - p0.y);
+    
+//     // 2nd derivative (valid for clamped endpoints)
+//     NURBS2ndDerivative.x = k * (k - 1) * (p2.x - 2 * p1.x + p0.x);
+//     NURBS2ndDerivative.y = k * (k - 1) * (p2.y - 2 * p1.y + p0.y);
+    
+//     NURBS1stDerivative.mag = Math.hypot(NURBS1stDerivative.x, NURBS1stDerivative.y);
+//     NURBS1stDerivative.angle = Math.atan2(NURBS1stDerivative.y, NURBS1stDerivative.x) * (180 / Math.PI);
+//     NURBS2ndDerivative.mag = Math.hypot(NURBS2ndDerivative.x, NURBS2ndDerivative.y);
+//     NURBS2ndDerivative.angle = Math.atan2(NURBS2ndDerivative.y, NURBS2ndDerivative.x) * (180 / Math.PI);
+// }
+
+/** Atualizado para suportar ajuste de pesos durante C1. */
+function calculateNURBSTangentVectors() { /** Mágica DS R1 0528: */
     const k = NURBS_DEGREE;
+    const U = NURBSknotVector;
     const p0 = NURBScontrolPoints[0];
     const p1 = NURBScontrolPoints[1];
     const p2 = NURBScontrolPoints[2];
-    
-    // 1st derivative (always valid for clamped endpoints)
-    NURBS1stDerivative.x = k * (p1.x - p0.x);
-    NURBS1stDerivative.y = k * (p1.y - p0.y);
-    
-    // 2nd derivative (valid for clamped endpoints)
+    const w0 = p0.weight;
+    const w1 = p1.weight;
+
+    // Denominador da fórmula (u_{p+1} - u_0)
+    const denom = U[k + 1] - U[0];
+
+    // Cálculo da tangente NURBS (válida apenas para u = knots[0])
+    NURBS1stDerivative.x = (k * w1 / w0) * (p1.x - p0.x) / denom;
+    NURBS1stDerivative.y = (k * w1 / w0) * (p1.y - p0.y) / denom;
+    NURBS1stDerivative.z = (k * w1 / w0) * (p1.z - p0.z) / denom;
+
+    // 2ª derivada (válida apenas para nó clamped e curva com pesos 1 - efetivamente b-spline)
     NURBS2ndDerivative.x = k * (k - 1) * (p2.x - 2 * p1.x + p0.x);
     NURBS2ndDerivative.y = k * (k - 1) * (p2.y - 2 * p1.y + p0.y);
     
@@ -111,7 +138,6 @@ function calculateNURBSTangentVectors() {   /** Mágica DS R1 0528: */
     NURBS2ndDerivative.mag = Math.hypot(NURBS2ndDerivative.x, NURBS2ndDerivative.y);
     NURBS2ndDerivative.angle = Math.atan2(NURBS2ndDerivative.y, NURBS2ndDerivative.x) * (180 / Math.PI);
 }
-
 
 
 

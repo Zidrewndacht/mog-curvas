@@ -17,8 +17,8 @@ let NURBScontrolPoints = [ //Curva inicial (pré-definida)
     { x: 480, y: 504, z: 0, weight: 1 },
     { x: 820, y: 450, z: 0, weight: 1 },
     { x: 410, y: 610, z: 0, weight: 1 },
-    { x: 320, y: 550, z: 0, weight: 1 },
-    { x: 410, y: 510, z: 0, weight: 1 },
+    { x: 320, y: 550, z: 0, weight: 2 },
+    { x: 410, y: 510, z: 0, weight: 3 },
     { x: 660, y: 680, z: 0, weight: 1 },
 ];
 
@@ -33,10 +33,10 @@ let bezierControlPoints = [ //Curva inicial (pré-definida)
     { ...NURBScontrolPoints[0] },  //precisa ser também dinamicamente definido como igual ao primeiro ponto da NURBS ao alterar.
 ];
 
-let bezier1stDerivative = {x: 0, y: 0, mag: 0, angle: 0};
-let bezier2ndDerivative = {x: 0, y: 0, mag: 0, angle: 0};
-let NURBS1stDerivative = {x: 0, y: 0, mag: 0, angle: 0};
-let NURBS2ndDerivative = {x: 0, y: 0, mag: 0, angle: 0};
+let bezier1stDerivative =   {x: 0, y: 0, mag: 0, angle: 0};
+let bezier2ndDerivative =   {x: 0, y: 0, mag: 0, angle: 0};
+let NURBS1stDerivative =    {x: 0, y: 0, mag: 0, angle: 0};
+let NURBS2ndDerivative =    {x: 0, y: 0, mag: 0, angle: 0};
 
 //Exercício requer grau 3, definido como variável para possibilitar generalização para segunda curva se aplicável.
 //Não foi aplicável, segunda curva não é NURBS. A menos que decida reimplementar bézier como subset de NURBS.

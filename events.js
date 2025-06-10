@@ -487,17 +487,6 @@ function handlePointMovement(pointIndex, newX, newY) {
       }
     }
   }
-
-  //arredonda tudo ao final, não há tempo de ajustar adequadamente cada comando relevante acima.
-  //Isso é feito para que vetores derivadas apresentem valores correspondentes ao real (afinal, pixels são inteiros)
-  // bezierControlPoints.forEach(point => {
-  //   point.x = Math.round(point.x);
-  //   point.y = Math.round(point.y);
-  // });
-  // NURBScontrolPoints.forEach(point => {
-  //   point.x = Math.round(point.x);
-  //   point.y = Math.round(point.y);
-  // });
 }
 
 

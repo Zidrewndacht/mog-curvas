@@ -141,10 +141,12 @@ function draw() {
       
       //Nós e pontos de controle precisam aparecer 'por cima' das curvas, todo o resto 'por baixo':
       if (document.getElementById('debugPopup').classList.contains('visible')){ //OK  //exibe vetor tangente enquanto popu está ativo
-        drawTangentVector(bezier1stDerivative, '#b005');  //vetores calculados previamente por showDebugPopup();
-        drawTangentVector(NURBS1stDerivative, '#0b05');
-        drawTangentVector(bezier2ndDerivative, '#f2a6'); 
-        drawTangentVector(NURBS2ndDerivative, '#08f6');
+          drawTangentVector(bezier1stDerivative, '#b005');  //vetores calculados previamente por showDebugPopup();
+          drawTangentVector(NURBS1stDerivative, '#0b05');
+          if (NURBScontrolPoints.slice(0, 4).every(point => point.weight === 1)) {
+              drawTangentVector(bezier2ndDerivative, '#f2a6'); 
+              drawTangentVector(NURBS2ndDerivative, '#08f6');
+          }
       }
 
       if (document.getElementById('showWeights').checked) { //OK: "Exibir pesos"
