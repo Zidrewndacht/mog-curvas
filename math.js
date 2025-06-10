@@ -92,7 +92,7 @@ function evaluateNURBS(u, NURBS_DEGREE, NURBScontrolPoints, knots) {
     };
 }
 
-function calculateNURBSTangentVectors() {   /** Mágica DS v3 0324: */
+function calculateNURBSTangentVectors() {   /** Mágica DS R1 0528: */
     const k = NURBS_DEGREE;
     const p0 = NURBScontrolPoints[0];
     const p1 = NURBScontrolPoints[1];
@@ -153,20 +153,20 @@ function calculateBezierTangentVectors(){   //Provavelmente OK
 }
 
 
-function checkContinuityLevel(){    // Revisar
+function checkContinuityLevel(){    // tolerâncias aparentemente OK
     let continuityLevel = "C0";
     
     if (bezier1stDerivative.mag > 1e-4 && NURBS1stDerivative.mag > 1e-4) {
         const angleDiff = Math.abs(Math.abs(bezier1stDerivative.angle - NURBS1stDerivative.angle));
         
-        if (angleDiff < 1) {
-            if (Math.abs(bezier1stDerivative.mag - NURBS1stDerivative.mag) < 0.01) {
+        if (angleDiff < 0.5) {
+            if (Math.abs(bezier1stDerivative.mag - NURBS1stDerivative.mag) < 1e-4) {
                 continuityLevel = "C1";
                 
                 if (bezier2ndDerivative.mag > 1e-4 && NURBS2ndDerivative.mag > 1e-4) {
                     const angleDiff2nd = Math.abs(Math.abs(bezier2ndDerivative.angle - NURBS2ndDerivative.angle));
                     
-                    if (angleDiff2nd < 1) {
+                    if (angleDiff2nd < 0.5) {
                         if (Math.abs(bezier2ndDerivative.mag - NURBS2ndDerivative.mag) < 0.01) {
                             continuityLevel = "C2";
                         } else {

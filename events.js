@@ -97,9 +97,9 @@ function openContextMenu(e) {
         const currentPoints = selectedCurve === 'NURBS' ? NURBScontrolPoints : bezierControlPoints;
         const point = currentPoints[selectedPointIndex];
         document.getElementById('contextCurveTitle').textContent = selectedCurve;
-        document.getElementById('setX').value = Math.round(point.x);
-        document.getElementById('setY').value = Math.round(point.y);
-        document.getElementById('setZ').value = Math.round(point.z);
+        document.getElementById('setX').value = point.x;
+        document.getElementById('setY').value = point.y;
+        document.getElementById('setZ').value = point.z;
         
         // Habilita peso apenas para NURBS:
         const weightInput = document.getElementById('weightInput');
@@ -154,9 +154,9 @@ function showPointInfoPopup(e, pointIndex) {
   
   document.getElementById('curveType'). textContent = selectedCurve;
   document.getElementById('pointIndex').textContent = pointIndex;
-  document.getElementById('pointX').    textContent = Math.round(point.x);
-  document.getElementById('pointY').    textContent = Math.round(point.y);
-  document.getElementById('pointZ').    textContent = Math.round(point.z);
+  document.getElementById('pointX').    textContent = (point.x).toFixed(5);
+  document.getElementById('pointY').    textContent = (point.y).toFixed(5);
+  document.getElementById('pointZ').    textContent = (point.z).toFixed(5);
   
   const weightElement = document.getElementById('pointWeight');
   weightElement.textContent = ((selectedCurve === 'NURBS') ? point.weight.toFixed(1) : '1.0');
@@ -487,6 +487,17 @@ function handlePointMovement(pointIndex, newX, newY) {
       }
     }
   }
+
+  //arredonda tudo ao final, não há tempo de ajustar adequadamente cada comando relevante acima.
+  //Isso é feito para que vetores derivadas apresentem valores correspondentes ao real (afinal, pixels são inteiros)
+  // bezierControlPoints.forEach(point => {
+  //   point.x = Math.round(point.x);
+  //   point.y = Math.round(point.y);
+  // });
+  // NURBScontrolPoints.forEach(point => {
+  //   point.x = Math.round(point.x);
+  //   point.y = Math.round(point.y);
+  // });
 }
 
 
@@ -647,106 +658,3 @@ function closeLicensePopup(){
     const popup = document.getElementById('about-wrapper');
     popup.classList.remove('visible');
 }
-
-
-
-
-
-
-// // Suporte a toque:
-// function handleTouchStart(e) {
-//   e.preventDefault();
-  
-//   if (e.touches.length === 1) {
-//     // Single touch - start pan/drag/long-press
-//     const touch = e.touches[0];
-//     const { clientX, clientY } = touch;
-    
-//     // Start long-press timer for context menu
-//     longPressTimeout = setTimeout(() => {
-//       openContextMenuForTouch(clientX, clientY);
-//     }, LONG_PRESS_DURATION);
-    
-//     // Handle point drag/pan start
-//     const { x, y } = getCanvasCoords(canvas, clientX, clientY);
-//     dragStartPos = { x, y };
-//     dragPointIndex = findControlPointAtPosition(x, y);
-    
-//     if (dragPointIndex >= 0) {
-//       isDragging = true;
-//       canvas.style.cursor = 'grabbing';
-//     } else {
-//       isPanning = true;
-//       panStart = { x: clientX, y: clientY };
-//       canvas.style.cursor = 'grabbing';
-//     }
-//   } 
-// }
-
-// function handleTouchMove(e) {
-//   e.preventDefault();
-  
-//   if (e.touches.length === 1) {
-//     // Single touch - pan/drag
-//     clearTimeout(longPressTimeout); // Cancel long press on move
-    
-//     const touch = e.touches[0];
-//     const { clientX, clientY } = touch;
-//     const { x, y } = getCanvasCoords(canvas, clientX, clientY);
-    
-//     if (isDragging) {
-//       handlePointMovement(dragPointIndex, x, y);
-//       draw();
-//     } 
-//     else if (isPanning) {
-//       const newOffsetX = panOffset.x + (clientX - panStart.x);
-//       const newOffsetY = panOffset.y + (clientY - panStart.y);
-      
-//       const maxPanX = canvas.width * (zoomLevel - 1) / 2;
-//       const maxPanY = canvas.height * (zoomLevel - 1) / 2;
-      
-//       panOffset.x = Math.max(-maxPanX, Math.min(maxPanX, newOffsetX));
-//       panOffset.y = Math.max(-maxPanY, Math.min(maxPanY, newOffsetY));
-      
-//       panStart = { x: clientX, y: clientY };
-//       draw();
-//     }
-//   } 
-// }
-
-// function handleTouchEnd(e) {
-//   clearTimeout(longPressTimeout);
-  
-//   if (isDragging || isPanning) {
-//     isDragging = false;
-//     isPanning = false;
-//     dragPointIndex = -1;
-//     canvas.style.cursor = '';
-//   }
-  
-//   // Handle point info popup on tap
-//   if (e.changedTouches.length === 1 && !isDragging && !isPanning) {
-//     const touch = e.changedTouches[0];
-//     const { clientX, clientY } = touch;
-//     const { x, y } = getCanvasCoords(canvas, clientX, clientY);
-    
-//     const pointIndex = findControlPointAtPosition(x, y);
-//     if (pointIndex >= 0 && !isContextMenuOpen()) {
-//       showPointInfoPopupForTouch(clientX, clientY, pointIndex);
-//     }
-//   }
-// }
-
-// function openContextMenuForTouch(clientX, clientY) {
-//   const { x, y } = getCanvasCoords(canvas, clientX, clientY);
-//   selectedPointIndex = findControlPointAtPosition(x, y);
-  
-//   if (selectedPointIndex >= 0) {
-//     openContextMenu({ clientX, clientY, preventDefault: () => {} });
-//   }
-// }
-
-// function showPointInfoPopupForTouch(clientX, clientY, pointIndex) {
-//   // Reuse existing popup logic but with touch coordinates
-//   showPointInfoPopup({ clientX, clientY }, pointIndex);
-// }
