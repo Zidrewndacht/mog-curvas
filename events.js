@@ -196,10 +196,18 @@ function showDebugPopup() {
     document.getElementById('NURBSmagnitude').textContent = NURBS1stDerivative.mag.toFixed(3);
     document.getElementById('NURBSangle').textContent = NURBS1stDerivative.angle.toFixed(2);
     
-    document.getElementById('bezierMagnitude2').textContent = bezier2ndDerivative.mag.toFixed(3);
-    document.getElementById('bezierAngle2').textContent = bezier2ndDerivative.angle.toFixed(2);
-    document.getElementById('NURBSmagnitude2').textContent = NURBS2ndDerivative.mag.toFixed(3);
-    document.getElementById('NURBSangle2').textContent = NURBS2ndDerivative.angle.toFixed(2);
+    if (NURBScontrolPoints.slice(0, 4).every(point => point.weight === 1)) {
+        document.getElementById('bezierMagnitude2').textContent = bezier2ndDerivative.mag.toFixed(3);
+        document.getElementById('bezierAngle2').textContent = bezier2ndDerivative.angle.toFixed(2);
+        document.getElementById('NURBSmagnitude2').textContent = NURBS2ndDerivative.mag.toFixed(3);
+        document.getElementById('NURBSangle2').textContent = NURBS2ndDerivative.angle.toFixed(2);
+    } else {
+        document.getElementById('bezierMagnitude2').textContent = "Desconhecido";
+        document.getElementById('bezierAngle2').textContent = "";
+        document.getElementById('NURBSmagnitude2').textContent = "Desconhecido";
+        document.getElementById('NURBSangle2').textContent = "";
+    }
+
 
     document.getElementById('continuityLevel').textContent = continuityLevel;
   
